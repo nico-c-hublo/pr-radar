@@ -42,7 +42,8 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   the issue it has just spotted. The same file is the README title's icon.
 - **Toasts**: Herdr's own, through `notify` with an `icon`, which the `toast` mod draws (18 px) in
   place of its colored level dot. So the level is in the icon: `icon-<level>.svg` is the radar with
-  its spotted blip bigger (r 4, a 0.8 dark outline, a 35% halo of r 6.2) and in the level's color:
+  its spotted blip three times bigger (r 6 at 26,12, a 1 px dark outline, a 30% halo of r 8) and
+  in the level's color:
   error `#FF5A5F`, warning `#F5A524`, success `#A3F7BF`, info `#5EB0FF`. At the plain icon's size
   the blip is 2 px in a toast and its color is lost. `Review requested: web#412` with the title and author
   (warning), `CI failed: web#418` (error), `CI passed: web#418` (success), `main is broken` /
@@ -135,6 +136,10 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
 - **Draw the icon for 15 px**: Herdr rasterizes an SVG with little smoothing at that size. A thin
   ring over a slightly larger disc breaks up; the ring as the disc's own thick stroke stays round.
   A PNG renders no better than the SVG.
+- **A toast's icon can't be animated cleanly**: the `toast` mod draws it with a still `image`, and
+  Herdr's native animations (`.loop`, `.spin`, `.transition`) only apply to what a mod draws itself.
+  An animated GIF does play (an animated PNG doesn't), but GIF's on-or-off transparency gives a round
+  icon jagged edges. A bigger, colored blip is what makes the level read.
 - `gh` may be missing from the app's PATH: try `/opt/homebrew/bin/gh` and `/usr/local/bin/gh`.
 
 ## Done when
