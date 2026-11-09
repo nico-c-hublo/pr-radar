@@ -1,6 +1,4 @@
-<p align="center"><img src="icon.png" alt="PR Radar's icon: a radar full of green dots, with one red dot spotted by the sweep" width="160"></p>
-
-# PR Radar
+# <img src="mods/pr-radar/icon.svg" alt="" width="44" height="44" align="top"> PR Radar
 
 ![PR Radar: GitHub, on your radar](banner.png)
 

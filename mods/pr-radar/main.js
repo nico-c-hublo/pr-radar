@@ -1,10 +1,13 @@
-import { View, div } from "gpui-kit";
+import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { exec, run, theme, props, shared, setShared, notify, playSound, openOverlay, closeOverlay, nextCommand } from "herdr";
 import { overview, discussions } from "./github.js";
 import { readConfig } from "./config.js";
 import { strings } from "./i18n.js";
 import { demoOverview, demoDiscussions, DEMO_PINS } from "./demo.js";
+
+// The mod's icon, from Herdr's config folder (where the install puts this one).
+const ICON = "mods/pr-radar/icon.svg";
 
 // PR Radar: a badge for a status bar that keeps an eye on GitHub for you, through the gh CLI.
 // Put it in a layout block (never a window over the layout: an always-open window takes the
@@ -214,6 +217,8 @@ export default class PrRadar extends View {
       .bg(t.chrome).border_t(1).border_color(t.border).text_size(11.8).text_color(t.muted)
       .cursor_pointer().hover((h) => h.bg(t.hover))
       .on_click(() => this.openPanel())
+      .child(image(ICON).w(15).h(15).flex_none())
+      .child(div().flex_1())
       .when(!st.at, (e) => e.child(item(s.loading, t.dim)))
       .when(Boolean(st.error), (e) => e.child(item(s.error, t.blocked)))
       .when(Boolean(st.at), (e) => e
@@ -288,6 +293,7 @@ export default class PrRadar extends View {
 
     return v_flex().size_full().bg(t.background)
       .child(h_flex().px(16).py(12).gap(10).items_center().border_b(1).border_color(t.border)
+        .child(image(ICON).w(20).h(20).flex_none())
         .child(div().text_size(14).font_semibold().text_color(t.foreground).child(s.title))
         .child(div().text_size(11).text_color(t.dim).child(st.at ? s.updated(ago(s, new Date(st.at).toISOString())) : s.waiting))
         .child(div().flex_1())
