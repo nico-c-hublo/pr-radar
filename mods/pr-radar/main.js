@@ -4,7 +4,7 @@ import { exec, run, theme, props, shared, setShared, notify, playSound, openOver
 import { overview, discussions } from "./github.js";
 import { readConfig } from "./config.js";
 import { strings } from "./i18n.js";
-import { demoOverview, demoDiscussions } from "./demo.js";
+import { demoOverview, demoDiscussions, DEMO_PINS } from "./demo.js";
 
 // PR Radar: a badge for a status bar that keeps an eye on GitHub for you, through the gh CLI.
 // Put it in a layout block (never a window over the layout: an always-open window takes the
@@ -91,8 +91,9 @@ export default class PrRadar extends View {
     cx.spawn(async (cx) => {
       const prev = shared(this.stateKey) ?? {};
       try {
+        if (this.cfg.demo && shared(this.pinsKey) == null) setShared(this.pinsKey, DEMO_PINS);
         const [o, threads] = this.cfg.demo
-          ? [demoOverview(), demoDiscussions()]
+          ? [demoOverview(this.pins()), demoDiscussions()]
           : await Promise.all([overview(this.cfg, this.pins()), discussions(this.cfg)]);
         if (!this.cfg.demo) this.announce(o, threads);
         setShared(this.stateKey, { ...o, threads, at: Date.now(), error: this.cfg.problems[0] ?? null });

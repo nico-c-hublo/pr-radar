@@ -83,7 +83,7 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     `gh api graphql` exits 1 when part of the query fails (a pin or branch that's gone): the answer
     still counts when it has `data`, and a `NOT_FOUND` on a pin's alias unpins it. `gh api notifications?participating=true`, keeping pull requests in
     scope, without the `review_requested` and `ci_activity` reasons.
-  - `i18n.js`: English and French strings. `demo.js`: made-up data for `demo: true`.
+  - `i18n.js`: English and French strings. `demo.js`: made-up data for `demo: true`, starting with `acme/web#418` pinned (changes requested).
 - Herdr: `exec` (gh, open), `notify` with `action: { name: "pr-radar.open-<slot>" }`, `playSound`,
   `openOverlay` / `closeOverlay`, `shared` / `setShared`, `nextCommand`, `run("pr-radar.refresh")`,
   `theme`, `props`, `cx.timer.every`.

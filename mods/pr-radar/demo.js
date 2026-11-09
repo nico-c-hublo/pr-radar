@@ -6,7 +6,21 @@ const p = (repo, number, title, author, ci, extra = {}) => ({
   url: `https://github.com/${repo}/pull/${number}`, ...extra,
 });
 
-export const demoOverview = () => ({
+// What demo mode starts with pinned, and what the query would say of the pinned ones.
+export const DEMO_PINS = ["acme/web#418"];
+const DEMO_DECISIONS = { "acme/web#418": "changes" };
+
+export const demoOverview = (pins = []) => {
+  const o = demoLists();
+  const all = [...o.reviews, ...o.prs];
+  o.pinned = pins.map((key) => {
+    const p = all.find((x) => x.key === key);
+    return p ? { ...p, state: "open", decision: DEMO_DECISIONS[key] ?? null, last: null } : { key, unknown: true };
+  });
+  return o;
+};
+
+const demoLists = () => ({
   me: "you",
   reviews: [
     p("acme/web", 412, "Checkout: keep the cart when the session expires", "maya", "success", { team: false }),
