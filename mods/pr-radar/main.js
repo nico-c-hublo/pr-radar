@@ -218,7 +218,6 @@ export default class PrRadar extends View {
       .cursor_pointer().hover((h) => h.bg(t.hover))
       .on_click(() => this.openPanel())
       .child(image(ICON).w(15).h(15).flex_none())
-      .child(div().flex_1())
       .when(!st.at, (e) => e.child(item(s.loading, t.dim)))
       .when(Boolean(st.error), (e) => e.child(item(s.error, t.blocked)))
       .when(Boolean(st.at), (e) => e
