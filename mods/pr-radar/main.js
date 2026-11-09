@@ -83,7 +83,7 @@ export default class PrRadar extends View {
     const slot = `${Date.now().toString(36)}${++this.slot}`;
     this.links.set(slot, url);
     if (this.links.size > 50) this.links.delete(this.links.keys().next().value);
-    try { notify({ title, body, level, timeout: 15000, action: { name: `pr-radar.open-${slot}` } }); } catch { /* no toast mod */ }
+    try { notify({ title, body, level, icon: ICON, timeout: 15000, action: { name: `pr-radar.open-${slot}` } }); } catch { /* no toast mod */ }
     const { sound } = this.cfg;
     if (sound === "always" || (sound === "needs-you" && needsYou)) try { playSound("blocked"); } catch { /* sounds off */ }
   }

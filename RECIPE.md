@@ -39,8 +39,9 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   from the center to the top right (45°) with two fading wedges trailing it counterclockwise. A loose
   cloud of about 25 small green dots (r 0.7 to 1.1): bright just behind the sweep, fading the
   further round they are. One red dot (`#FF5A5F`, r 2, with a 35% halo) sits just behind the line:
-  the issue it has just spotted. The same file is the README title's icon.
-- **Toasts**: Herdr's own, through `notify`: `Review requested: web#412` with the title and author
+  the issue it has just spotted. The same file is the toasts' and the README title's icon.
+- **Toasts**: Herdr's own, through `notify` with `icon` set to the icon, which the `toast` mod draws
+  (18 px) in place of its colored level dot: `Review requested: web#412` with the title and author
   (warning), `CI failed: web#418` (error), `CI passed: web#418` (success), `main is broken` /
   `main is fixed`, `New comment: api#1287` (info).
 
