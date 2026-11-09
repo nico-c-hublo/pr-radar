@@ -251,7 +251,10 @@ export default class PrRadar extends View {
           .on_click((_e, cx) => { cx.stop_propagation(); this.togglePin(key); })
           .child("📌"));
     };
-    const row = (icon, color, where, title, extra, url, key = null) => {
+    // A draft pull request's row: a `draft` tag before its title, and the title faded.
+    const draftTag = () => div().flex_none().px(5).rounded(4).border_1().border_color(t.border)
+      .text_size(10).text_color(t.dim).child(s.draft);
+    const row = (icon, color, where, title, extra, url, key = null, draft = false) => {
       const id = `prr-row-${n++}`;
       return h_flex().id(id).h(30).flex_none().px(10).gap(10).items_center()
       .rounded(5).cursor_pointer().hover((h) => h.bg(t.hover)).on_click(() => { openUrl(url); close(); })
@@ -261,7 +264,8 @@ export default class PrRadar extends View {
       }))
       .child(div().w(14).flex_none().text_color(color).child(icon))
       .child(div().w(150).flex_none().truncate().text_size(11.5).text_color(t.dim).child(where))
-      .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(t.foreground).child(title))
+      .when(draft, (e) => e.child(draftTag()))
+      .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(draft ? t.muted : t.foreground).child(title))
       .child(div().flex_none().text_size(11).text_color(t.dim).child(extra ?? ""))
       .child(pin(key, id));
     };
@@ -288,10 +292,9 @@ export default class PrRadar extends View {
       const notes = h_flex().gap(8)
         .when(Boolean(p.review), (e) => e.child(p.review.team ? bit(`○ ${s.team}`, t.dim) : bit(`◉ ${s.review}`, t.accent)))
         .when(Boolean(p.decision), (e) => e.child(bit(s.decision[p.decision], p.decision === "approved" ? t.ansi2 : t.blocked)))
-        .when(Boolean(p.thread), (e) => e.child(bit(`✎ ${p.thread && ago(s, p.thread.updated)}`, t.foreground)))
-        .when(Boolean(p.draft), (e) => e.child(bit(s.draft, t.dim)));
+        .when(Boolean(p.thread), (e) => e.child(bit(`✎ ${p.thread && ago(s, p.thread.updated)}`, t.foreground)));
       const url = p.ci === "failed" ? `${p.base.url}/checks` : p.base.url;
-      return row(ic, t[col], ref(p.base), p.base.title, notes, url, p.key);
+      return row(ic, t[col], ref(p.base), p.base.title, notes, url, p.key, Boolean(p.draft));
     };
 
     return v_flex().size_full().bg(t.background)
@@ -305,10 +308,10 @@ export default class PrRadar extends View {
       .when(Boolean(st.error), (e) => e.child(div().px(16).py(8).text_size(12).text_color(t.blocked).child(st.error)))
       .child(v_flex().flex_1().min_h(0).px(6).pb(10).overflow_y_scrollbar()
         .when(pinRows.length > 0, (e) => e.child(section("pinned", pinRows.map(pinRow))))
-        .child(section("reviews", mine.map((r) => row("◉", t.accent, ref(r), r.title, r.author, r.url, r.key))))
+        .child(section("reviews", mine.map((r) => row("◉", t.accent, ref(r), r.title, r.author, r.url, r.key, Boolean(r.draft)))))
         .child(section("ci", prs.map((p) => {
           const [ic, col] = look(p.ci);
-          return row(ic, t[col], ref(p), p.title, p.draft ? s.draft : "", p.ci === "failed" ? `${p.url}/checks` : p.url, p.key);
+          return row(ic, t[col], ref(p), p.title, "", p.ci === "failed" ? `${p.url}/checks` : p.url, p.key, Boolean(p.draft));
         })))
         .when((st.branches ?? []).length > 0, (e) => e.child(section("branches", st.branches.map((b) => {
           const [ic, col] = look(b.ci);
@@ -316,6 +319,6 @@ export default class PrRadar extends View {
         }))))
         .child(section("discussions", threads.filter(unpinned).map((th) => row("✎", t.foreground, ref(th), th.title,
           `${s.reasons[th.reason] ?? th.reason} · ${ago(s, th.updated)}`, th.url, prKey(th)))))
-        .child(section("team", team.map((r) => row("○", t.dim, ref(r), r.title, `${s.team} · ${r.author}`, r.url, r.key)))));
+        .child(section("team", team.map((r) => row("○", t.dim, ref(r), r.title, `${s.team} · ${r.author}`, r.url, r.key, Boolean(r.draft))))));
   }
 }

@@ -24,14 +24,16 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
 - **The panel**: a dialog 680 px wide, 70% of the window high. Header: the icon (20 px), `PR Radar`, `updated 2 min ago`
   in `dim`, a `Refresh` button. A red line with the last error under it, if any. Then the sections,
   each a small uppercase `dim` title and 30 px rows (an icon, `repo#number` in `dim` 150 px wide,
-  the title, a right-aligned note): Reviews requested, My pull requests (failed first; `draft` noted),
+  the title, a right-aligned note): Reviews requested, My pull requests (failed first),
   Branches (only when some are watched; the short commit as the note), Unread discussions (the
-  reason and how long ago as the note), Reviews requested of my teams (`○` in `dim`).
+  reason and how long ago as the note), Reviews requested of my teams (`○` in `dim`). A draft pull
+  request's row, in any section, has a `draft` tag before its title (10 px, `dim`, a 1 px `border`
+  outline, 4 px corners) and its title in `muted` instead of `foreground`.
 - **Pins**: each pull request row ends with a 20 px slot for a `📌` (12 px). Unpinned, it shows only
   while the row is hovered, at 35% opacity and full when the pin itself is hovered; pinned, it's
   always there at full opacity (60% on hover). A click pins or unpins without opening the row. Pinned pull requests leave their sections for a
   `Pinned` section at the top (failed first), one row each: the CI icon, then notes `◉ review`
-  (`accent`) or `○ team`, `approved` (`ansi2`) / `changes requested` (`blocked`), `✎ 4 min`, `draft`.
+  (`accent`) or `○ team`, `approved` (`ansi2`) / `changes requested` (`blocked`), `✎ 4 min`.
   The badge starts with `📌 2`: `blocked` when a pinned one's CI fails, `accent` when one has your
   review requested or an unread discussion, `muted` otherwise; hidden with no pins.
 - **The icon** (`icon.svg`, a 40×40 view box): a radar. A dark disc (`#0F1A17`, r 18) whose edge is a
