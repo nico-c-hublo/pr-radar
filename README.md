@@ -1,4 +1,8 @@
+<p align="center"><img src="icon.png" alt="PR Radar's icon: a radar full of green dots, with one red dot spotted by the sweep" width="160"></p>
+
 # PR Radar
+
+![PR Radar: GitHub, on your radar](banner.png)
 
 A [Herdr](https://herdr.dev) mod that tells you when GitHub needs you, without leaving your terminals:
 review requests, red CI on your pull requests, broken branches and new comments in discussions you
