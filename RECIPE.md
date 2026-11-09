@@ -67,7 +67,7 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
 - Layout: the status bar block becomes a `row` (28 px, `resizable: false`) holding
   `{ mod: "workspace-status" }` and `{ id: "pr-radar", size: { px: 300 }, content: { mod: "pr-radar", props } }`.
 - `mods/pr-radar/`:
-  - `mod.json`: `{ "place": "none" }`.
+  - `mod.json`: `{ "place": "none", "title": "PR Radar" }`.
   - `main.js`: the view. The badge copy (layout block) polls and announces. The panel copy is
     opened with `openOverlay({ mod: "pr-radar", props: { panel: true, cfg: <badge's props> },
     kind: "dialog" })` and only reads. It also handles the `refresh`, `panel`, `test` and `open-<slot>`
@@ -91,7 +91,7 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
 ## Watch out
 
 - Pins live in shared `pr-radar.pins:<scope>` (an array of `owner/name#123`), so the panel copy
-  writes them and the badge copy reads them. A pin's star stops the click with
+  writes them and the badge copy reads them. A row's 📌 stops the click with
   `cx.stop_propagation()` so the row doesn't open. There's no group hover: a row's `on_hover`
   sets the panel's `hoverRow` (its id) and re-renders, and the pin's id is derived from its row's,
   so revealing it doesn't shift the ids below.
@@ -117,8 +117,9 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
 
 - `herdr-app check ~/.config/herdr-app/mods/pr-radar` passes and `herdr-app status` has no errors.
 - The status bar shows the badge at its right end, and no other copy of PR Radar is in the layout.
-- With `"demo": true`, the badge reads `◉ 1 review (+2)  ✗ 1 CI  ✎ 2  main ✓` and the panel shows the
-  five sections with the made-up rows.
+- With `"demo": true` and no pins yet, the badge reads `📌 1  ◉ 1 review (+2)  ✗ 1 CI  ✎ 2  main ✓`
+  (`📌 1` in `blocked`) and the panel shows six sections with the made-up rows, starting with
+  Pinned (`acme/web#418`, `changes requested`).
 - `herdr-app do pr-radar.test` shows exactly one toast, and clicking it opens GitHub's notifications.
 - `herdr-app do pr-radar.panel` opens the panel; clicking a row opens that pull request.
 - Requesting your review on a pull request in scope brings a toast within one interval.

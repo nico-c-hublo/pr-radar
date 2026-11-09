@@ -16,7 +16,7 @@ import { demoOverview, demoDiscussions, DEMO_PINS } from "./demo.js";
 // Clicking a toast or a row opens it in the browser. The badge opens a panel listing everything.
 // Config: the block's props (config.js). Shared "pr-radar.state:<scope>" is what the badge and
 // panel show; "pr-radar.seen:<scope>" is what was announced, so a restart doesn't repeat it.
-// "pr-radar.pins:<scope>" lists the pinned pull requests: the panel's stars toggle them, they're
+// "pr-radar.pins:<scope>" lists the pinned pull requests: the panel's 📌 toggles them, they're
 // shown first and announced loudly, and unpinned once merged or closed.
 // The first check only records. props.panel: the panel copy (it reads the badge's props.cfg).
 // Commands: pr-radar.refresh, pr-radar.panel, pr-radar.test (a sample toast).
