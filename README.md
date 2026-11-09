@@ -1,13 +1,13 @@
 # <img src="mods/pr-radar/icon.svg" alt="" width="44" height="44" align="top"> PR Radar
 
-![PR Radar: GitHub, on your radar](banner.png)
+![PR Radar: GitHub, on your radar](preview.png)
 
 A [Herdr](https://herdr.dev) mod that tells you when GitHub needs you, without leaving your terminals:
 review requests, red CI on your pull requests, broken branches and new comments in discussions you
 take part in. It sits in your status bar as a small badge, posts a Herdr toast when something
 changes, and opens a panel with everything waiting on you.
 
-![PR Radar's panel](preview.png)
+![PR Radar's panel](panel.png)
 
 ![PR Radar's badge](badge.png)
 
