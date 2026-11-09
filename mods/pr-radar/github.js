@@ -7,18 +7,23 @@ import { exec } from "herdr";
 const msg = (e) => String(e?.message ?? e);
 
 // gh, trying the Homebrew folders when the app's PATH doesn't have it. Only a program that
-// couldn't start moves on; one that ran and failed is the answer.
-async function gh(args) {
+// couldn't start moves on; one that ran and failed is the answer. With `partial`, a GraphQL answer
+// with errors (gh exits 1) still counts when it carries data: a pinned pull request or a watched
+// branch that's gone mustn't hide everything else.
+async function gh(args, { partial = false } = {}) {
   let last;
   for (const bin of ["gh", "/opt/homebrew/bin/gh", "/usr/local/bin/gh"]) {
     let r;
     try { r = await exec(bin, args, { timeout: 60000 }); } catch (e) { last = e; continue; }
     if (r.code === 127) { last = new Error("gh not found"); continue; }
+    if (r.code !== 0 && partial && hasData(r.stdout)) return r.stdout;
     if (r.code !== 0) throw new Error((r.stderr || r.stdout).trim().split("\n")[0] || `gh exited ${r.code}`);
     return r.stdout;
   }
   throw new Error(`gh isn't installed or can't start: ${msg(last)}`);
 }
+
+const hasData = (out) => { try { return Boolean(JSON.parse(out)?.data); } catch { return false; } };
 
 const host = (cfg) => (cfg.host && cfg.host !== "github.com" ? ["--hostname", cfg.host] : []);
 
@@ -46,13 +51,35 @@ const pr = (p) => ({
   ci: CI[p.commits.nodes[0]?.commit?.statusCheckRollup?.state] ?? null,
 });
 
-// -> { me, reviews: [pr & { team }], prs: [pr], branches: [{ key, repo, branch, oid, url, ci }] }
-export async function overview(cfg) {
+// A pin is a pull request's key, "owner/name#123".
+const parsePin = (k) => {
+  const m = /^([^/\s]+)\/([^#\s]+)#(\d+)$/.exec(typeof k === "string" ? k : "");
+  return m && { owner: m[1], name: m[2], number: Number(m[3]) };
+};
+
+const DECISION = { APPROVED: "approved", CHANGES_REQUESTED: "changes" };
+
+// What a pinned pull request adds to P: whether it's still open, its review decision, and the
+// last comment or review (to announce someone else's).
+const PIN_FIELDS = `state reviewDecision
+  timelineItems(last: 1, itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW]) { nodes {
+    ... on IssueComment { id author { login __typename } }
+    ... on PullRequestReview { id author { login __typename } } } }`;
+
+// -> { me, reviews: [pr & { team }], prs: [pr], branches: [{ key, repo, branch, oid, url, ci }],
+//      pinned: [pr & { state, decision, last } | { key, gone } | { key, unknown }] }
+// `gone`: GitHub says the pull request doesn't exist (any more); `unknown`: no answer this time.
+export async function overview(cfg, pins = []) {
   const q = `is:pr is:open archived:false ${scope(cfg)}`.trim();
   const branchFields = cfg.branches.map((b, i) => {
     const [owner, name] = b.repo.split("/");
     return `b${i}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) {
       ref(qualifiedName: ${JSON.stringify(`refs/heads/${b.branch}`)}) { target { ... on Commit { oid url statusCheckRollup { state } } } } }`;
+  }).join("\n");
+  const pinFields = pins.map((k, i) => {
+    const p = parsePin(k);
+    return p ? `p${i}: repository(owner: ${JSON.stringify(p.owner)}, name: ${JSON.stringify(p.name)}) {
+      pullRequest(number: ${p.number}) { ...P ${PIN_FIELDS} } }` : "";
   }).join("\n");
   const query = `${FRAGMENT}
 query($mine: String!, $personal: String!, $asked: String!) {
@@ -61,9 +88,10 @@ query($mine: String!, $personal: String!, $asked: String!) {
   personal: search(query: $personal, type: ISSUE, first: 50) { nodes { ... on PullRequest { ...P } } }
   asked: search(query: $asked, type: ISSUE, first: 50) { nodes { ... on PullRequest { ...P } } }
   ${branchFields}
+  ${pinFields}
 }`;
   const out = await gh(["api", "graphql", ...host(cfg), "-f", `query=${query}`,
-    "-f", `mine=${q} author:@me`, "-f", `personal=${q} user-review-requested:@me`, "-f", `asked=${q} review-requested:@me`]);
+    "-f", `mine=${q} author:@me`, "-f", `personal=${q} user-review-requested:@me`, "-f", `asked=${q} review-requested:@me`], { partial: true });
   const res = JSON.parse(out);
   const d = res.data;
   if (!d) throw new Error(res.errors?.[0]?.message ?? "GitHub returned no data");
@@ -79,7 +107,17 @@ query($mine: String!, $personal: String!, $asked: String!) {
       oid: t?.oid ?? null, url: t?.url ?? `https://${cfg.host}/${b.repo}/tree/${b.branch}`,
       ci: t ? CI[t.statusCheckRollup?.state] ?? null : "missing" };
   });
-  return { me: d.viewer.login, reviews, prs: d.mine.nodes.filter((p) => p.number).map(pr), branches };
+  // A missing repository or pull request comes back as a NOT_FOUND error on its alias.
+  const notFound = new Set((res.errors ?? []).filter((e) => e.type === "NOT_FOUND").map((e) => e.path?.[0]));
+  const pinned = pins.map((k, i) => {
+    const n = d[`p${i}`]?.pullRequest;
+    if (!parsePin(k) || notFound.has(`p${i}`) || (d[`p${i}`] && !n)) return { key: k, gone: true };
+    if (!n) return { key: k, unknown: true };
+    const last = n.timelineItems?.nodes?.[0];
+    return { ...pr(n), state: String(n.state).toLowerCase(), decision: DECISION[n.reviewDecision] ?? null,
+      last: last?.id ? { id: last.id, author: last.author?.login ?? "", bot: last.author?.__typename === "Bot" } : null };
+  });
+  return { me: d.viewer.login, reviews, prs: d.mine.nodes.filter((p) => p.number).map(pr), branches, pinned };
 }
 
 // Unread "participating" notifications on pull requests in scope. Review requests come from the

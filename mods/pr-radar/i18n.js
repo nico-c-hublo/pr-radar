@@ -9,6 +9,12 @@ const en = {
   branchBrokenBody: "The branch's checks failed",
   branchFixed: (b) => `${b} is fixed`,
   branchFixedBody: "The branch's checks pass again",
+  merged: (ref) => `Merged: ${ref}`,
+  closed: (ref) => `Closed: ${ref}`,
+  approved: (ref) => `Approved: ${ref}`,
+  changesRequested: (ref) => `Changes requested: ${ref}`,
+  newCommits: (ref) => `New commits: ${ref}`,
+  newComment: (ref) => `New comment: ${ref}`,
   reasons: {
     author: "Activity on your PR", comment: "New comment", mention: "You were mentioned",
     team_mention: "Your team was mentioned", assign: "Assigned to you", state_change: "PR changed",
@@ -19,10 +25,11 @@ const en = {
   loading: "GitHub…", error: "⚠ GitHub",
   reviews: (n) => `${n} review${n === 1 ? "" : "s"}`,
   title: "PR Radar", updated: (ago) => (ago === "just now" ? "updated just now" : `updated ${ago} ago`), now: "just now", refresh: "Refresh", waiting: "loading…",
-  sections: { reviews: "Reviews requested", ci: "My pull requests", branches: "Branches", discussions: "Unread discussions", team: "Reviews requested of my teams" },
+  sections: { pinned: "Pinned", reviews: "Reviews requested", ci: "My pull requests", branches: "Branches", discussions: "Unread discussions", team: "Reviews requested of my teams" },
   empty: { reviews: "No review waiting on you", ci: "No open pull request", branches: "None watched", discussions: "Nothing new", team: "None" },
   ci: { success: "Checks pass", failed: "Checks failed", pending: "Checks running", none: "No checks", missing: "Branch not found" },
-  team: "team", draft: "draft",
+  team: "team", draft: "draft", review: "review",
+  decision: { approved: "approved", changes: "changes requested" },
   units: ["min", "h", "d"],
 };
 
@@ -35,6 +42,12 @@ const fr = {
   branchBrokenBody: "Les checks de la branche ont échoué",
   branchFixed: (b) => `${b} est réparée`,
   branchFixedBody: "Les checks de la branche repassent au vert",
+  merged: (ref) => `Mergée : ${ref}`,
+  closed: (ref) => `Fermée : ${ref}`,
+  approved: (ref) => `Approuvée : ${ref}`,
+  changesRequested: (ref) => `Changements demandés : ${ref}`,
+  newCommits: (ref) => `Nouveaux commits : ${ref}`,
+  newComment: (ref) => `Nouveau commentaire : ${ref}`,
   reasons: {
     author: "Activité sur ta PR", comment: "Nouveau commentaire", mention: "Tu es mentionné",
     team_mention: "Ton équipe est mentionnée", assign: "PR assignée", state_change: "PR changée",
@@ -45,10 +58,11 @@ const fr = {
   loading: "GitHub…", error: "⚠ GitHub",
   reviews: (n) => `${n} review${n === 1 ? "" : "s"}`,
   title: "PR Radar", updated: (ago) => (ago === "à l'instant" ? "mis à jour à l'instant" : `mis à jour il y a ${ago}`), now: "à l'instant", refresh: "Rafraîchir", waiting: "chargement…",
-  sections: { reviews: "Reviews demandées", ci: "Mes PR", branches: "Branches", discussions: "Discussions non lues", team: "Reviews demandées à mes équipes" },
+  sections: { pinned: "Épinglées", reviews: "Reviews demandées", ci: "Mes PR", branches: "Branches", discussions: "Discussions non lues", team: "Reviews demandées à mes équipes" },
   empty: { reviews: "Aucune review en attente", ci: "Aucune PR ouverte", branches: "Aucune surveillée", discussions: "Rien de nouveau", team: "Aucune" },
   ci: { success: "Checks verts", failed: "Checks rouges", pending: "Checks en cours", none: "Pas de checks", missing: "Branche introuvable" },
-  team: "équipe", draft: "draft",
+  team: "équipe", draft: "draft", review: "review",
+  decision: { approved: "approuvée", changes: "changements demandés" },
   units: ["min", "h", "j"],
 };
 

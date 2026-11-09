@@ -24,6 +24,28 @@ Reviews requested of your teams are listed in the panel but not announced, unles
 `teamReviews`. Clicking a toast or a row opens it in your browser. The first check after a start only
 records what's there, so you aren't flooded with old news.
 
+## Pinning
+
+Hover a row in the panel and click the 📌 that appears at its end to pin that pull request. Pinned pull requests get
+their own section at the top of the panel, one row each with everything known about it (review
+requested, CI, review decision, unread discussion), and a `📌 2` in the badge (red when one's CI
+fails, accent when one waits on you).
+
+A pinned pull request is loud: everything about it is announced, with the sound (unless `sound`
+is `"never"`):
+
+| When | Toast |
+|---|---|
+| Its checks fail, or pass after running or failing | error / success |
+| It's approved, or changes are requested | success / warning |
+| Someone pushes new commits to it (not on your own) | info |
+| Someone comments or reviews (not you, not a bot) | info |
+| A review is requested of your team on it | warning |
+| It's merged or closed: it's then unpinned | success / info |
+
+A pin works on any pull request, even one that's in none of your lists. Pins are kept per
+configuration, across restarts. Click its 📌 again to unpin.
+
 ## Requirements
 
 - Herdr (the desktop app).
@@ -91,7 +113,8 @@ Run them with `herdr-app do <command>`.
 ## What it runs and reads
 
 PR Radar runs `gh` on your machine, with your GitHub login:
-- one GraphQL query per check, for your pull requests, review requests and watched branches;
+- one GraphQL query per check, for your pull requests, review requests, watched branches and pinned
+  pull requests;
 - one call to the notifications API, for discussions.
 
 It also runs `open` (macOS) or `xdg-open` (Linux) to open links. It keeps a small state in Herdr's

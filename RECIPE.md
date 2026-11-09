@@ -27,6 +27,13 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   the title, a right-aligned note): Reviews requested, My pull requests (failed first; `draft` noted),
   Branches (only when some are watched; the short commit as the note), Unread discussions (the
   reason and how long ago as the note), Reviews requested of my teams (`○` in `dim`).
+- **Pins**: each pull request row ends with a 20 px slot for a `📌` (12 px). Unpinned, it shows only
+  while the row is hovered, at 35% opacity and full when the pin itself is hovered; pinned, it's
+  always there at full opacity (60% on hover). A click pins or unpins without opening the row. Pinned pull requests leave their sections for a
+  `Pinned` section at the top (failed first), one row each: the CI icon, then notes `◉ review`
+  (`accent`) or `○ team`, `approved` (`ansi2`) / `changes requested` (`blocked`), `✎ 4 min`, `draft`.
+  The badge starts with `📌 2`: `blocked` when a pinned one's CI fails, `accent` when one has your
+  review requested or an unread discussion, `muted` otherwise; hidden with no pins.
 - **Toasts**: Herdr's own, through `notify`: `Review requested: web#412` with the title and author
   (warning), `CI failed: web#418` (error), `CI passed: web#418` (success), `main is broken` /
   `main is fixed`, `New comment: api#1287` (info).
@@ -42,6 +49,12 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   - a watched branch whose settled state (success or failed) flips; a run in progress changes
     nothing; broken has a sound;
   - an unread participating notification on a pull request that's new or updated since last seen.
+- A pinned pull request is loud: every announcement about it has the needs-you sound, and also
+  its team review requests, its green CI (whatever `greenCi`), its CI when it isn't yours, its
+  review decision turning approved or changes requested, new commits when it isn't yours, the last
+  comment or review changing when it's not by you or a bot (unless a discussion toast just said
+  so), and it being merged or closed, which unpins it. Pinning only records: nothing is announced
+  for a pull request until the check after it's pinned.
 - `sound`: `needs-you` plays Herdr's `blocked` sound for the announcements marked above, `always` for
   all, `never` for none.
 - What was announced is kept in shared state, so restarting Herdr doesn't repeat it.
@@ -65,7 +78,10 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     archived:false` plus `org:` / `repo:` qualifiers: `author:@me`, `user-review-requested:@me`,
     `review-requested:@me`; the difference between the last two is your teams), each pull request's
     last commit `statusCheckRollup.state`, and one `repository { ref { target { statusCheckRollup } } }`
-    alias per watched branch. `gh api notifications?participating=true`, keeping pull requests in
+    alias per watched branch, and one `repository { pullRequest(number) }` alias per pin (with
+    `state`, `reviewDecision` and the last `ISSUE_COMMENT` / `PULL_REQUEST_REVIEW` timeline item).
+    `gh api graphql` exits 1 when part of the query fails (a pin or branch that's gone): the answer
+    still counts when it has `data`, and a `NOT_FOUND` on a pin's alias unpins it. `gh api notifications?participating=true`, keeping pull requests in
     scope, without the `review_requested` and `ci_activity` reasons.
   - `i18n.js`: English and French strings. `demo.js`: made-up data for `demo: true`.
 - Herdr: `exec` (gh, open), `notify` with `action: { name: "pr-radar.open-<slot>" }`, `playSound`,
@@ -74,6 +90,11 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
 
 ## Watch out
 
+- Pins live in shared `pr-radar.pins:<scope>` (an array of `owner/name#123`), so the panel copy
+  writes them and the badge copy reads them. A pin's star stops the click with
+  `cx.stop_propagation()` so the row doesn't open. There's no group hover: a row's `on_hover`
+  sets the panel's `hoverRow` (its id) and re-renders, and the pin's id is derived from its row's,
+  so revealing it doesn't shift the ids below.
 - **Never run it from a window**: an `openOverlay({ kind: "window" })` with `width: 1, height: 1`
   is the whole window, not one pixel (sizes up to 1 are shares). Invisible, kept and on top, it takes
   every click. A layout block is the place for background work: it lives while the layout shows,
