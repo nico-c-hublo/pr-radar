@@ -82,7 +82,7 @@ PR Radar watches every repository you're involved in.
 
 ## Commands
 
-- `pr-radar.panel` opens the panel. Bind it in `keys.json`, e.g. `"cmd-shift-g": "pr-radar:panel"`.
+- `pr-radar.panel` opens the panel. Bind it in `keys.json`, e.g. `"cmd-shift-g": "pr-radar.panel"` in its `global` section.
 - `pr-radar.refresh` checks now.
 - `pr-radar.test` posts a sample toast.
 
