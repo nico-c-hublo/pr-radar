@@ -8,6 +8,10 @@ import { demoOverview, demoDiscussions, DEMO_PINS } from "./demo.js";
 
 // The mod's icon, from Herdr's config folder (where the install puts this one).
 const ICON = "mods/pr-radar/icon.svg";
+// A toast's icon: the radar with a bigger spotted blip in the level's color, since Herdr's toast mod
+// draws an icon in place of its colored level dot, at 18 px.
+const TOAST_ICON = Object.fromEntries(["error", "warning", "success", "info"]
+  .map((level) => [level, `mods/pr-radar/icon-${level}.svg`]));
 
 // PR Radar: a badge for a status bar that keeps an eye on GitHub for you, through the gh CLI.
 // Put it in a layout block (never a window over the layout: an always-open window takes the
@@ -83,7 +87,7 @@ export default class PrRadar extends View {
     const slot = `${Date.now().toString(36)}${++this.slot}`;
     this.links.set(slot, url);
     if (this.links.size > 50) this.links.delete(this.links.keys().next().value);
-    try { notify({ title, body, level, icon: ICON, timeout: 15000, action: { name: `pr-radar.open-${slot}` } }); } catch { /* no toast mod */ }
+    try { notify({ title, body, level, icon: TOAST_ICON[level] ?? ICON, timeout: 15000, action: { name: `pr-radar.open-${slot}` } }); } catch { /* no toast mod */ }
     const { sound } = this.cfg;
     if (sound === "always" || (sound === "needs-you" && needsYou)) try { playSound("blocked"); } catch { /* sounds off */ }
   }

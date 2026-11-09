@@ -39,9 +39,12 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   from the center to the top right (45°) with two fading wedges trailing it counterclockwise. A loose
   cloud of about 25 small green dots (r 0.7 to 1.1): bright just behind the sweep, fading the
   further round they are. One red dot (`#FF5A5F`, r 2, with a 35% halo) sits just behind the line:
-  the issue it has just spotted. The same file is the toasts' and the README title's icon.
-- **Toasts**: Herdr's own, through `notify` with `icon` set to the icon, which the `toast` mod draws
-  (18 px) in place of its colored level dot: `Review requested: web#412` with the title and author
+  the issue it has just spotted. The same file is the README title's icon.
+- **Toasts**: Herdr's own, through `notify` with an `icon`, which the `toast` mod draws (18 px) in
+  place of its colored level dot. So the level is in the icon: `icon-<level>.svg` is the radar with
+  its spotted blip bigger (r 4, a 0.8 dark outline, a 35% halo of r 6.2) and in the level's color:
+  error `#FF5A5F`, warning `#F5A524`, success `#A3F7BF`, info `#5EB0FF`. At the plain icon's size
+  the blip is 2 px in a toast and its color is lost. `Review requested: web#412` with the title and author
   (warning), `CI failed: web#418` (error), `CI passed: web#418` (success), `main is broken` /
   `main is fixed`, `New comment: api#1287` (info).
 
@@ -92,6 +95,8 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     scope, without the `review_requested` and `ci_activity` reasons.
   - `icon.svg`: the icon, drawn with `image("mods/pr-radar/icon.svg")` (full color, from Herdr's
     config folder) as the badge's first child and before the panel's title.
+  - `icon-error.svg`, `icon-warning.svg`, `icon-success.svg`, `icon-info.svg`: the toasts' icons,
+    picked by the toast's level.
   - `i18n.js`: English and French strings. `demo.js`: made-up data for `demo: true`, starting with `acme/web#418` pinned (changes requested).
 - Herdr: `exec` (gh, open), `notify` with `action: { name: "pr-radar.open-<slot>" }`, `playSound`,
   `openOverlay` / `closeOverlay`, `shared` / `setShared`, `nextCommand`, `run("pr-radar.refresh")`,
