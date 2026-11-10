@@ -219,6 +219,16 @@ test("excerpts: said in each language", () => {
   assert.equal(fr.recap.said("leo", "Pourquoi pas une map ?"), "leo : « Pourquoi pas une map ? »");
 });
 
+test("your team: still asked, it's 'your team', listed first so a long list never hides it", () => {
+  const st = story(pr({ requested: ["@sre", "@planning", "florent"] }), "me", { asked: "team", teams: ["planning"] });
+  assert.deepEqual(st.myTeamsAsked, ["planning"]);
+  assert.equal(plainRecap(st, en), "waiting on your team planning, team sre and florent");
+  assert.equal(plainRecap(st, fr), "en attente de ton équipe planning, l'équipe sre et florent");
+  const many = story(pr({ requested: ["@a", "@b", "@c", "@d", "@planning"] }), "me", { teams: ["planning"] });
+  assert.equal(plainRecap(many, en), "waiting on your team planning, team a, team b and 2 more");
+  assert.equal(plainRecap(story(pr({ requested: ["@sre"] }), "me", { teams: ["planning"] }), en), "waiting on team sre");
+});
+
 test("on your own pull request, threads where someone else spoke last wait on you", () => {
   const p = pr({ author: "me", threads: [thread("leo", "leo"), thread("leo", "me"), thread("maya", "maya", true), thread("leo", "ci[bot]")] });
   assert.equal(story(p, "me").threads.waitingOnMe, 1);

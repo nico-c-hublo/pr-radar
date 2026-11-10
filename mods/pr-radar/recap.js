@@ -80,9 +80,12 @@ export function story(pr, me, { asked = null, teams = [] } = {}) {
   const changesRequested = opinions.filter((r) => r.state === "CHANGES_REQUESTED").map((r) => ({ by: who(r.author.login) }));
 
   const requested = nodes(pr.reviewRequests).map((r) => r.requestedReviewer).filter(Boolean);
+  const askedTeams = requested.filter((r) => r.__typename === "Team").map((r) => r.slug);
+  // Your teams still asked: listed first, so a long list's "2 more" never hides them.
+  const myTeamsAsked = askedTeams.filter((t) => teams.includes(t));
   const waitingOn = {
     users: requested.filter((r) => r.login && r.__typename !== "Bot").map((r) => who(r.login)), // "you" too
-    teams: requested.filter((r) => r.__typename === "Team").map((r) => r.slug),
+    teams: [...myTeamsAsked, ...askedTeams.filter((t) => !teams.includes(t))],
   };
 
   const mine = nodes(pr.latestReviews).find((r) => r.author?.login === me);
@@ -123,7 +126,7 @@ export function story(pr, me, { asked = null, teams = [] } = {}) {
   return {
     role, author: who(author), draft: Boolean(pr.draft), ci: pr.ci ?? null, merge: merge(pr), base: pr.base ?? "",
     decision: DECISION[pr.reviewDecision] ?? null,
-    approvals, myTeamCovered, changesRequested, waitingOn, threads, excerpts, sinceMyReview,
+    approvals, myTeamCovered, myTeamsAsked, changesRequested, waitingOn, threads, excerpts, sinceMyReview,
     detailed: Boolean(pr.reviewRequests || pr.latestOpinionatedReviews || pr.latestReviews || pr.reviewThreads),
   };
 }
@@ -150,7 +153,7 @@ export function plainRecap(st, s, { all = false } = {}) {
   const blocking = clauses.length;
   if (!blocking && st.merge === "ready") return r.ready;
   const { users, teams } = st.waitingOn;
-  if (users.length || teams.length) clauses.push(r.waitingOn(teams, users));
+  if (users.length || teams.length) clauses.push(r.waitingOn(teams, users, st.myTeamsAsked));
   // Approved by some, yet GitHub still wants a review and nobody else is asked: say it's not done.
   else if (st.decision === "review-required" && st.approvals.length) clauses.push(r.needsApproval);
   if (st.approvals.length) clauses.push(r.approved(st.approvals, st.myTeamCovered));

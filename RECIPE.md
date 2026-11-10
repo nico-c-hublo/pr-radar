@@ -90,13 +90,14 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   asked. The story also has `decision` and a `role` (author; reviewer: asked of you or reviewed;
   team-reviewer: asked of your team only; watcher: pinned) from how the pull request reached your
   lists; only author or not changes the wording. An approval on behalf of one of your teams says
-  `your team <slug>` (`ton équipe`); the story lists them as `myTeamCovered`. Your teams come from
-  `viewer.organizations.teams(userLogins:)`, kept in shared `pr-radar.teams:<scope>` and fetched
-  again every 6 hours (15 minutes after a failure), matched in each pull request's own org. "Since
-  your review" reads the last 50 commits: with the commit you reviewed still in them, any non-merge
-  commit after it is a push (merges of the base branch are nothing new); with it gone (history
-  rewritten), a non-merge commit authored after your review is a push, otherwise it's `rebased since
-  your review` (a rebase keeps author dates; an amend may have changed the code).
+  `your team <slug>` (`ton équipe`), and so does a request still open to one, listed first so "2
+  more" never hides it; the story lists them as `myTeamCovered` and `myTeamsAsked`. Your teams come
+  from `viewer.organizations.teams(userLogins:)`, kept in shared `pr-radar.teams:<scope>` and
+  fetched again every 6 hours (15 minutes after a failure), matched in each pull request's own org.
+  "Since your review" reads the last 50 commits: with the commit you reviewed still in them, any
+  non-merge commit after it is a push (merges of the base branch are nothing new); with it gone
+  (history rewritten), a non-merge commit authored after your review is a push, otherwise it's
+  `rebased since your review` (a rebase keeps author dates; an amend may have changed the code).
 - A pinned pull request is loud: every announcement about it has the needs-you sound, and also
   its team review requests, its green CI (whatever `greenCi`), its CI when it isn't yours, its
   review decision turning approved or changes requested, new commits when it isn't yours, the last

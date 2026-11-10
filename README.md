@@ -61,7 +61,7 @@ where it stands, from your point of view, most pressing first:
   `nothing new since your review` (merging the base branch in is nothing new);
 - `changes requested by maya`, `CI red`;
 - `waiting on team beta and leo`, `bill approved for team alpha` (the team a review counted for,
-  through code owners; `your team planning` when it's one of yours), `needs another approval` (GitHub still wants a review and nobody's asked);
+  through code owners; `your team planning` when it's one of yours, approving or still asked), `needs another approval` (GitHub still wants a review and nobody's asked);
 - `ready to merge` when GitHub says nothing blocks it;
 - `no reviewers yet` (`draft · no reviewers yet` on a draft) when nobody's been asked and nobody
   has reviewed.

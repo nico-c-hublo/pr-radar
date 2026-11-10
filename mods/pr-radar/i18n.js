@@ -51,7 +51,8 @@ const en = {
     ciRed: "CI red",
     behind: (base) => `behind ${base}`,
     ready: "ready to merge",
-    waitingOn: (teams, users) => `waiting on ${list([...teams.map((t) => `team ${t}`), ...users], "and")}`,
+    // mine: the viewer's teams among them ("your team").
+    waitingOn: (teams, users, mine = []) => `waiting on ${list([...teams.map((t) => (mine.includes(t) ? `your team ${t}` : `team ${t}`)), ...users], "and")}`,
     // mine: the viewer's teams among them ("your team").
     approved: (a, mine = []) => (a.length === 1
       ? `${a[0].by} approved${a[0].teams.length ? ` for ${list(a[0].teams.map((t) => (mine.includes(t) ? `your team ${t}` : `team ${t}`)), "and")}` : ""}`
@@ -106,7 +107,7 @@ const fr = {
     ciRed: "CI rouge",
     behind: (base) => `en retard sur ${base}`,
     ready: "prête à merger",
-    waitingOn: (teams, users) => `en attente de ${list([...teams.map((t) => `l'équipe ${t}`), ...users.map(toi)], "et", autres)}`,
+    waitingOn: (teams, users, mine = []) => `en attente de ${list([...teams.map((t) => (mine.includes(t) ? `ton équipe ${t}` : `l'équipe ${t}`)), ...users.map(toi)], "et", autres)}`,
     approved: (a, mine = []) => (a.length === 1
       ? `${a[0].by === "you" ? "tu as approuvé" : `${a[0].by} a approuvé`}${a[0].teams.length ? ` pour ${list(a[0].teams.map((t) => (mine.includes(t) ? `ton équipe ${t}` : `l'équipe ${t}`)), "et", autres)}` : ""}`
       : `approuvée par ${list(a.map((x) => (x.teams.length ? `${toi(x.by)} (${x.teams.map((t) => (mine.includes(t) ? `ton équipe ${t}` : t)).join(", ")})` : toi(x.by))), "et", autres)}`),
