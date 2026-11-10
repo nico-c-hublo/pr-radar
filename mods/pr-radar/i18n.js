@@ -94,7 +94,7 @@ const fr = {
   recap: {
     waitingOnMe: (n) => `${n} fil${n === 1 ? "" : "s"} attend${n === 1 ? "" : "ent"} ta réponse`,
     conflicts: (base) => `conflits avec ${base}`,
-    answered: (author, n) => `${author === "you" ? "tu as" : `${author} a`} répondu à ${n === 1 ? "ton fil" : `tes ${n} fils`}`,
+    answered: (author, n) => `${author} a répondu à ${n === 1 ? "ton fil" : `tes ${n} fils`}`,
     pushed: "nouveaux commits depuis ta review",
     changesRequested: (by) => `changements demandés par ${list(by.map(toi), "et", autres)}`,
     ciRed: "CI rouge",

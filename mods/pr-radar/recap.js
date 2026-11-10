@@ -89,11 +89,3 @@ export function plainRecap(st, s) {
   if (!clauses.length && !st.approvals.length && !st.changesRequested.length) clauses.push(r.noReviewers);
   return clauses.slice(0, MAX_CLAUSES).join(" · ");
 }
-
-// A stable fingerprint of what the sentence is made of: a change means the recap may read differently.
-export function digest(st) {
-  const text = JSON.stringify(st);
-  let h = 5381;
-  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
-}

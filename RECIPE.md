@@ -116,9 +116,9 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     teams), `latestReviews` (your last review's commit) and `reviewThreads(first: 50)` (resolved,
     first and last comment's author).
   - `recap.js`: pure, no Herdr. `story(pr, me)` works out the facts, `plainRecap(story, strings)`
-    writes the sentence from i18n's `recap` templates, `digest(story)` fingerprints it. Tested with
+    writes the sentence from i18n's `recap` templates. Tested with
     `npm test` (`node --test`, fixtures in `test/`). Kept in shared `pr-radar.recaps:<scope>`
-    (`{ updated, at, details, digest, plain }` per pull request), pruned to the listed ones.
+    (`{ updated, at, details, plain }` per pull request), pruned to the listed ones.
   - `icon.svg`: the icon, drawn with `image("mods/pr-radar/icon.svg")` (full color, from Herdr's
     config folder) as the badge's first child and before the panel's title.
   - `icon-error.svg`, `icon-warning.svg`, `icon-success.svg`, `icon-info.svg`: the toasts' icons,

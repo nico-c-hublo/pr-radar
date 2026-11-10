@@ -2,7 +2,7 @@ import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { exec, run, theme, props, shared, setShared, notify, playSound, openOverlay, closeOverlay, nextCommand } from "herdr";
 import { overview, discussions, details } from "./github.js";
-import { story, plainRecap, digest } from "./recap.js";
+import { story, plainRecap } from "./recap.js";
 import { readConfig } from "./config.js";
 import { strings } from "./i18n.js";
 import { demoOverview, demoDiscussions, demoDetails, DEMO_PINS } from "./demo.js";
@@ -146,8 +146,7 @@ export default class PrRadar extends View {
     for (const k of keys) {
       const c = got[k] ? { updated: byKey.get(k).updated, at: now, details: got[k] } : prev[k];
       if (!c) continue;
-      const st = story({ ...byKey.get(k), ...c.details }, o.me);
-      next[k] = { ...c, digest: digest(st), plain: plainRecap(st, this.s) };
+      next[k] = { ...c, plain: plainRecap(story({ ...byKey.get(k), ...c.details }, o.me), this.s) };
     }
     setShared(this.recapsKey, next);
   }

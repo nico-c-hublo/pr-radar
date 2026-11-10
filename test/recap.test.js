@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { story, plainRecap, digest } from "../mods/pr-radar/recap.js";
+import { story, plainRecap } from "../mods/pr-radar/recap.js";
 import { strings } from "../mods/pr-radar/i18n.js";
 
 // Fixtures in the shape github.js gives: a pull request with its details (GraphQL's own nodes).
@@ -110,12 +110,10 @@ test("mergeability: blocked adds nothing; unstable only when nothing else is sai
   assert.equal(recap(pr({ mergeState: "UNSTABLE" })), "mergeable · some optional checks fail");
 });
 
-test("mergeability: unknown says nothing, and changes the digest once known", () => {
+test("mergeability: unknown says nothing", () => {
   const unknown = story(pr({ mergeable: "UNKNOWN", mergeState: "UNKNOWN", opinions: [review("bill", "APPROVED")] }), "me");
   assert.equal(unknown.merge, null);
   assert.equal(plainRecap(unknown, en), "bill approved");
-  const known = story(pr({ mergeable: "CONFLICTING", mergeState: "DIRTY", opinions: [review("bill", "APPROVED")] }), "me");
-  assert.notEqual(digest(unknown), digest(known));
 });
 
 test("a draft is never 'ready to merge'", () => {
@@ -143,12 +141,6 @@ test("more threads than fetched", () => {
 
 test("no details yet: no recap", () => {
   assert.equal(plainRecap(story({ author: "ana", ci: "success" }, "me"), en), null);
-});
-
-test("digest: the same for the same facts", () => {
-  const a = pr({ opinions: [review("bill", "APPROVED")] }), b = pr({ opinions: [review("bill", "APPROVED")] });
-  assert.equal(digest(story(a, "me")), digest(story(b, "me")));
-  assert.notEqual(digest(story(a, "me")), digest(story(pr({ opinions: [review("maya", "APPROVED")] }), "me")));
 });
 
 test("French", () => {
