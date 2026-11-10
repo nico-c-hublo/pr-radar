@@ -81,11 +81,15 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   review. `ready to merge` alone when GitHub says `CLEAN` and nothing above applies. `no reviewers
   yet` when nothing at all applies, `draft · no reviewers yet` on a draft (the only place a recap
   says draft: the row's tag says it). Mergeability `UNKNOWN` (computed lazily after a push) says
-  nothing. Lists stop at three names and "2 more". Bots are left out; you are "you". "Since your
-  review" reads the last 50 commits: with the commit you reviewed still in them, any non-merge
-  commit after it is a push (merges of the base branch are nothing new); with it gone (history
-  rewritten), a non-merge commit authored after your review is a push, otherwise it's `rebased since
-  your review` (a rebase keeps author dates; an amend may have changed the code).
+  nothing. Lists stop at three names and "2 more". Bots are left out; you are "you". `needs another
+  approval` before the approvals when GitHub's `reviewDecision` is `REVIEW_REQUIRED` and nobody is
+  asked. The story also has `decision` and a `role` (author; reviewer: asked of you or reviewed;
+  team-reviewer: asked of your team only; watcher: pinned) from how the pull request reached your
+  lists; only author or not changes the wording. "Since your review" reads the last 50 commits: with
+  the commit you reviewed still in them, any non-merge commit after it is a push (merges of the base
+  branch are nothing new); with it gone (history rewritten), a non-merge commit authored after your
+  review is a push, otherwise it's `rebased since your review` (a rebase keeps author dates; an
+  amend may have changed the code).
 - A pinned pull request is loud: every announcement about it has the needs-you sound, and also
   its team review requests, its green CI (whatever `greenCi`), its CI when it isn't yours, its
   review decision turning approved or changes requested, new commits when it isn't yours, the last
@@ -122,7 +126,7 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     scope, without the `review_requested` and `ci_activity` reasons. The fragment also has
     `updatedAt mergeable mergeStateStatus baseRefName`. `details()`: one `repository { pullRequest }`
     alias per pull request with `reviewRequests`, `latestOpinionatedReviews` (with `onBehalfOf`
-    teams), `latestReviews` (your last review's commit and time), `reviewThreads(first: 50)`
+    teams), `reviewDecision`, `latestReviews` (your last review's commit and time), `reviewThreads(first: 50)`
     (resolved, outdated, first comment's author, last comment's author and time) and `commits(last: 50)` (oid, author date, parents).
   - `recap.js`: pure, no Herdr. `story(pr, me)` works out the facts, `plainRecap(story, strings)`
     writes the sentence from i18n's `recap` templates, and `nextRecaps(check, stored, fetchDetails,

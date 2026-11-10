@@ -125,6 +125,39 @@ test("threads: on your pull request, an outdated thread is the reviewer's turn",
   assert.equal(recap(p), "1 thread waits on you");
 });
 
+test("roles: author, reviewer, team-reviewer, watcher", () => {
+  assert.equal(story(pr({ author: "me" }), "me").role, "author");
+  assert.equal(story(pr({ requested: ["me"] }), "me").role, "reviewer"); // asked by name (seen in the details)
+  assert.equal(story(pr(), "me", { asked: "me" }).role, "reviewer");
+  assert.equal(story(pr({ latest: [review("me", "COMMENTED")] }), "me", { asked: "team" }).role, "reviewer"); // reviewed
+  assert.equal(story(pr({ requested: ["@planning"] }), "me", { asked: "team" }).role, "team-reviewer");
+  assert.equal(story(pr(), "me").role, "watcher");
+});
+
+test("roles: anyone but the author has threads answered", () => {
+  const p = pr({ threads: [thread("me", "ana")] });
+  assert.equal(story(p, "me", { asked: "team" }).threads.answered, 1);
+  assert.equal(story(p, "me").threads.answered, 1); // a watcher who once started a thread
+});
+
+test("decision: GitHub's review decision", () => {
+  assert.equal(story(pr({ reviewDecision: "APPROVED" }), "me").decision, "approved");
+  assert.equal(story(pr({ reviewDecision: "CHANGES_REQUESTED" }), "me").decision, "changes");
+  assert.equal(story(pr({ reviewDecision: "REVIEW_REQUIRED" }), "me").decision, "review-required");
+  assert.equal(story(pr({ reviewDecision: null }), "me").decision, null);
+});
+
+test("decision: approved by some, but GitHub still wants a review and nobody's asked", () => {
+  const p = pr({ author: "me", reviewDecision: "REVIEW_REQUIRED", opinions: [review("bill", "APPROVED")] });
+  assert.equal(recap(p), "needs another approval · bill approved");
+  assert.equal(recap(p, "me", fr), "il manque une approbation · bill a approuvé");
+  // someone's asked: that's said instead
+  assert.equal(recap(pr({ author: "me", reviewDecision: "REVIEW_REQUIRED", requested: ["@beta"], opinions: [review("bill", "APPROVED")] })),
+    "waiting on team beta · bill approved");
+  // no review rule: approvals are enough to say
+  assert.equal(recap(pr({ author: "me", opinions: [review("bill", "APPROVED")] })), "bill approved");
+});
+
 test("on your own pull request, threads where someone else spoke last wait on you", () => {
   const p = pr({ author: "me", threads: [thread("leo", "leo"), thread("leo", "me"), thread("maya", "maya", true), thread("leo", "ci[bot]")] });
   assert.equal(story(p, "me").threads.waitingOnMe, 1);
@@ -286,6 +319,15 @@ test("a pinned pull request's recap says everything, the others three things at 
   const { recaps } = await nextRecaps(o, {}, fetch, en, 0);
   assert.equal(recaps["a/b#1"].plain, "conflicts with main · changes requested by maya · CI red · waiting on team beta · bill approved for team alpha");
   assert.equal(recaps["a/b#2"].plain, "conflicts with main · changes requested by maya · CI red");
+});
+
+test("nextRecaps: the review decision reaches the recap", async () => {
+  const o = { ...check([], [listed("a/b#1", { team: false }), listed("a/b#2", { team: true })]), pinned: [listed("a/b#3")] };
+  const d = { ...detailsOf(), latestOpinionatedReviews: { nodes: [review("bill", "APPROVED")] }, reviewDecision: "REVIEW_REQUIRED" };
+  const { fetch } = fetcher({ "a/b#1": d, "a/b#2": d, "a/b#3": d });
+  const { recaps } = await nextRecaps(o, {}, fetch, en, 0);
+  assert.equal(recaps["a/b#1"].plain, "needs another approval · bill approved");
+  assert.equal(recaps["a/b#3"].plain, "needs another approval · bill approved");
 });
 
 test("nextRecaps: at most RECAP_FETCH fetched per check, pinned and mine first", async () => {

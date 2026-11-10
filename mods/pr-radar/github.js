@@ -144,6 +144,7 @@ export async function discussions(cfg) {
 // count for, the review threads (outdated or not, who started them, who spoke last and when), and the last commits (to
 // tell a push since your review from a rebase or a merge of the base branch).
 const DETAIL_FIELDS = `
+  reviewDecision
   reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on User { login } ... on Team { slug } } } }
   latestOpinionatedReviews(first: 20) { nodes { state author { login __typename } commit { oid } onBehalfOf(first: 5) { nodes { slug } } } }
   latestReviews(first: 20) { nodes { state submittedAt author { login __typename } commit { oid } } }
