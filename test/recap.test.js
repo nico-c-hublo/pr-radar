@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { story, plainRecap } from "../mods/pr-radar/recap.js";
+import { story, plainRecap, nextRecaps, RECAP_FETCH, RECAP_STALE } from "../mods/pr-radar/recap.js";
 import { strings } from "../mods/pr-radar/i18n.js";
 
 // Fixtures in the shape github.js gives: a pull request with its details (GraphQL's own nodes).
@@ -150,4 +150,69 @@ test("French", () => {
     "ana a répondu à ton fil · nouveaux commits depuis ta review");
   assert.equal(recap(pr({ opinions: [review("me", "CHANGES_REQUESTED")] }), "me", fr), "changements demandés par toi · rien de nouveau depuis ta review");
   assert.equal(recap(pr({ author: "me", mergeState: "CLEAN" }), "me", fr), "prête à merger");
+});
+
+// ---- nextRecaps: what the badge copy runs after each check ----
+
+const listed = (key, extra = {}) => ({ key, title: key, author: "ana", ci: "success", oid: "head", mergeState: "BLOCKED", base: "main", updated: "t1", ...extra });
+const check = (prs, reviews = []) => ({ me: "me", pinned: [], prs, reviews });
+const detailsOf = (opinions = []) => ({ reviewRequests: { nodes: [] }, latestOpinionatedReviews: { nodes: opinions }, latestReviews: { nodes: [] }, reviewThreads: { totalCount: 0, nodes: [] } });
+const fetcher = (answer) => {
+  const calls = [];
+  const fetch = async (keys) => { calls.push(keys); return typeof answer === "function" ? answer(keys) : answer; };
+  return { fetch, calls };
+};
+
+test("nextRecaps: fetches the new pull requests' details and builds their recaps", async () => {
+  const { fetch, calls } = fetcher({ "a/b#1": detailsOf([review("bill", "APPROVED")]) });
+  const { recaps, errors } = await nextRecaps(check([listed("a/b#1")]), {}, fetch, en, 1000);
+  assert.deepEqual(calls, [["a/b#1"]]);
+  assert.deepEqual(errors, []);
+  assert.equal(recaps["a/b#1"].plain, "bill approved");
+  assert.equal(recaps["a/b#1"].updated, "t1");
+});
+
+test("nextRecaps: a failed fetch keeps what was known, and doesn't throw", async () => {
+  const prev = { "a/b#1": { updated: "t0", at: 0, details: detailsOf([review("bill", "APPROVED")]), plain: "bill approved" } };
+  const fetch = async () => { throw new Error("gh exited 1"); };
+  const { recaps, errors } = await nextRecaps(check([listed("a/b#1", { ci: "failed" })]), prev, fetch, en, 1000);
+  assert.deepEqual(errors, ["gh exited 1"]);
+  assert.equal(recaps["a/b#1"].plain, "CI red · bill approved"); // rebuilt from the known details and this check's CI
+  assert.equal(recaps["a/b#1"].updated, "t0"); // still due: fetched again next check
+});
+
+test("nextRecaps: an answer it can't read keeps that recap's last sentence, the others are built", async () => {
+  const odd = { get reviewRequests() { throw new Error("unexpected shape"); } };
+  const prev = { "a/b#1": { updated: "t0", at: 0, details: detailsOf(), plain: "earlier sentence" } };
+  const { fetch } = fetcher({ "a/b#1": odd, "a/b#2": detailsOf([review("maya", "APPROVED")]) });
+  const { recaps, errors } = await nextRecaps(check([listed("a/b#1"), listed("a/b#2")]), prev, fetch, en, 1000);
+  assert.equal(recaps["a/b#1"].plain, "earlier sentence");
+  assert.equal(recaps["a/b#2"].plain, "maya approved");
+  assert.deepEqual(errors, ["a/b#1: unexpected shape"]);
+});
+
+test("nextRecaps: details are fetched again only when updated or stale", async () => {
+  const known = (updated, at) => ({ updated, at, details: detailsOf(), plain: "x" });
+  const prev = { "a/b#1": known("t1", 0), "a/b#2": known("t0", 0), "a/b#3": known("t1", -RECAP_STALE - 1) };
+  const { fetch, calls } = fetcher((keys) => Object.fromEntries(keys.map((k) => [k, detailsOf()])));
+  await nextRecaps(check([listed("a/b#1"), listed("a/b#2"), listed("a/b#3")]), prev, fetch, en, 0);
+  assert.deepEqual(calls, [["a/b#2", "a/b#3"]]);
+});
+
+test("nextRecaps: nothing due, nothing fetched; pull requests no longer listed are dropped", async () => {
+  const prev = { "a/b#1": { updated: "t1", at: 0, details: detailsOf(), plain: "x" }, "a/b#9": { updated: "t1", at: 0, details: detailsOf(), plain: "y" } };
+  const { fetch, calls } = fetcher({});
+  const { recaps } = await nextRecaps(check([listed("a/b#1")]), prev, fetch, en, 0);
+  assert.deepEqual(calls, []);
+  assert.deepEqual(Object.keys(recaps), ["a/b#1"]);
+});
+
+test("nextRecaps: at most RECAP_FETCH fetched per check, pinned and mine first", async () => {
+  const mine = Array.from({ length: RECAP_FETCH + 5 }, (_, i) => listed(`a/b#${i + 1}`));
+  const { fetch, calls } = fetcher({});
+  const o = { ...check(mine, [listed("a/b#100", { team: false })]), pinned: [listed("a/b#200")] };
+  await nextRecaps(o, {}, fetch, en, 0);
+  assert.equal(calls[0].length, RECAP_FETCH);
+  assert.equal(calls[0][0], "a/b#200");
+  assert.ok(!calls[0].includes("a/b#100"));
 });

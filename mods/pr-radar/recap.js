@@ -1,7 +1,9 @@
 // A pull request's recap: one sentence saying where it stands, from the viewer's point of view.
-// Pure (no Herdr), so it's tested with fixtures. Two steps:
+// Pure (no Herdr), so it's tested with fixtures:
 //   story(pr, me)          what GitHub's answer says, worked out: the facts a sentence is made of;
-//   plainRecap(story, s)   the sentence, from fixed templates (i18n.js `recap`), most pressing first.
+//   plainRecap(story, s)   the sentence, from fixed templates (i18n.js `recap`), most pressing first;
+//   nextRecaps(...)        after a check: which pull requests get one, which details to fetch again,
+//                          and every recap rebuilt (the badge copy stores the result).
 // `pr` is a pull request as github.js returns it (author, draft, ci, oid, mergeable, mergeState,
 // base) with its details merged in (reviewRequests, latestOpinionatedReviews, latestReviews,
 // reviewThreads: GraphQL's own shape).
@@ -88,4 +90,41 @@ export function plainRecap(st, s) {
   if (!clauses.length && st.merge === "unstable") clauses.push(r.unstable);
   if (!clauses.length && !st.approvals.length && !st.changesRequested.length) clauses.push(r.noReviewers);
   return clauses.slice(0, MAX_CLAUSES).join(" · ");
+}
+
+// Which pull requests get a recap: at most RECAP_MAX (pinned, then mine, then reviews asked of me,
+// then of my teams). Their details are fetched again when the pull request was updated, or at least
+// every RECAP_STALE; RECAP_FETCH at most per check (the rest wait for the next one).
+export const RECAP_MAX = 30, RECAP_FETCH = 15, RECAP_STALE = 15 * 60000;
+
+// o: a check's answer (github.js overview); prev: the recaps stored after the last check
+// ({ [key]: { updated, at, details, plain } }); fetchDetails(keys) -> { [key]: details | null }.
+// -> { recaps, errors }. Never throws: recaps are extra, and a failure mustn't undo the check. A
+// failed fetch keeps the details known; a recap that can't be built keeps its last sentence.
+export async function nextRecaps(o, prev, fetchDetails, s, now = Date.now()) {
+  const errors = [], byKey = new Map();
+  const add = (p) => { if (p?.key && p.title && !byKey.has(p.key)) byKey.set(p.key, p); };
+  (o?.pinned ?? []).forEach(add);
+  (o?.prs ?? []).forEach(add);
+  (o?.reviews ?? []).filter((r) => !r.team).forEach(add);
+  (o?.reviews ?? []).filter((r) => r.team).forEach(add);
+  const keys = [...byKey.keys()].slice(0, RECAP_MAX);
+  const due = keys.filter((k) => !prev?.[k] || prev[k].updated !== byKey.get(k).updated || now - prev[k].at > RECAP_STALE)
+    .slice(0, RECAP_FETCH);
+  let got = {};
+  if (due.length) {
+    try { got = (await fetchDetails(due)) ?? {}; } catch (e) { errors.push(String(e?.message ?? e)); }
+  }
+  const recaps = {};
+  for (const k of keys) {
+    const c = got[k] ? { updated: byKey.get(k).updated, at: now, details: got[k] } : prev?.[k];
+    if (!c) continue;
+    try {
+      recaps[k] = { ...c, plain: plainRecap(story({ ...byKey.get(k), ...c.details }, o.me), s) };
+    } catch (e) {
+      errors.push(`${k}: ${e?.message ?? e}`);
+      if (prev?.[k]) recaps[k] = prev[k];
+    }
+  }
+  return { recaps, errors };
 }

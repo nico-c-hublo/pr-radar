@@ -116,8 +116,11 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     teams), `latestReviews` (your last review's commit) and `reviewThreads(first: 50)` (resolved,
     first and last comment's author).
   - `recap.js`: pure, no Herdr. `story(pr, me)` works out the facts, `plainRecap(story, strings)`
-    writes the sentence from i18n's `recap` templates. Tested with
-    `npm test` (`node --test`, fixtures in `test/`). Kept in shared `pr-radar.recaps:<scope>`
+    writes the sentence from i18n's `recap` templates, and `nextRecaps(check, stored, fetchDetails,
+    strings)` picks what to fetch again and rebuilds every recap. It never throws: a failed fetch
+    keeps the known details, an answer it can't read keeps that recap's last sentence. Tested with
+    `npm test` (`node --test`, fixtures in `test/`; `test/github.test.js` answers `herdr` with the
+    fake in `test/fakes/` to check the queries `details()` sends, never an empty one). Kept in shared `pr-radar.recaps:<scope>`
     (`{ updated, at, details, plain }` per pull request), pruned to the listed ones.
   - `icon.svg`: the icon, drawn with `image("mods/pr-radar/icon.svg")` (full color, from Herdr's
     config folder) as the badge's first child and before the panel's title.

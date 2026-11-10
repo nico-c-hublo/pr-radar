@@ -2,7 +2,7 @@ import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { exec, run, theme, props, shared, setShared, notify, playSound, openOverlay, closeOverlay, nextCommand } from "herdr";
 import { overview, discussions, details } from "./github.js";
-import { story, plainRecap } from "./recap.js";
+import { nextRecaps } from "./recap.js";
 import { readConfig } from "./config.js";
 import { strings } from "./i18n.js";
 import { demoOverview, demoDiscussions, demoDetails, DEMO_PINS } from "./demo.js";
@@ -36,10 +36,6 @@ const short = (repo) => repo.split("/").pop();
 const ref = (x) => `${short(x.repo)}#${x.number ?? ""}`;
 // A pull request's key, "owner/name#123", as pins store it (null for a thread without a number).
 const prKey = (x) => (x.number ? `${x.repo}#${x.number}` : null);
-// Recaps: for at most RECAP_MAX pull requests (pinned, then mine, then reviews asked of me, then of my
-// teams), details fetched again when the pull request was updated, or at least every RECAP_STALE,
-// RECAP_FETCH at most per check (the rest wait for the next one).
-const RECAP_MAX = 30, RECAP_FETCH = 15, RECAP_STALE = 15 * 60000;
 const openUrl = (url) => { if (url) exec("open", [url]).catch(() => exec("xdg-open", [url]).catch(() => {})); };
 
 function ago(s, iso) {
@@ -126,29 +122,12 @@ export default class PrRadar extends View {
     });
   }
 
-  // Fetches the details recaps need (see RECAP_*) and rebuilds every recap from them and from this
-  // check's answer, which has the fresh CI and mergeability. A failed fetch keeps what was known.
+  // Rebuilds the recaps after a check (recap.js `nextRecaps`, which picks what to fetch again).
   async updateRecaps(o) {
-    const byKey = new Map();
-    const add = (p) => { if (p?.key && p.title && !byKey.has(p.key)) byKey.set(p.key, p); };
-    (o.pinned ?? []).forEach(add);
-    o.prs.forEach(add);
-    o.reviews.filter((r) => !r.team).forEach(add);
-    o.reviews.filter((r) => r.team).forEach(add);
-    const keys = [...byKey.keys()].slice(0, RECAP_MAX);
-    const prev = shared(this.recapsKey) ?? {}, now = Date.now();
-    const due = keys.filter((k) => !prev[k] || prev[k].updated !== byKey.get(k).updated || now - prev[k].at > RECAP_STALE)
-      .slice(0, RECAP_FETCH);
-    let got = {};
-    try { got = this.cfg.demo ? demoDetails(due) : await details(this.cfg, due); }
-    catch (e) { console.log(`pr-radar: recaps: ${e?.message ?? e}`); } // keep what was known
-    const next = {};
-    for (const k of keys) {
-      const c = got[k] ? { updated: byKey.get(k).updated, at: now, details: got[k] } : prev[k];
-      if (!c) continue;
-      next[k] = { ...c, plain: plainRecap(story({ ...byKey.get(k), ...c.details }, o.me), this.s) };
-    }
-    setShared(this.recapsKey, next);
+    const fetch = (keys) => (this.cfg.demo ? demoDetails(keys) : details(this.cfg, keys));
+    const { recaps, errors } = await nextRecaps(o, shared(this.recapsKey) ?? {}, fetch, this.s);
+    for (const e of errors) console.log(`pr-radar: recaps: ${e}`);
+    setShared(this.recapsKey, recaps);
   }
 
   announce(o, threads) {

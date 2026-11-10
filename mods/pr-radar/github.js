@@ -151,14 +151,15 @@ const DETAIL_FIELDS = `
     last: comments(last: 1) { nodes { author { login __typename } } } } }`;
 
 // keys ("owner/name#123") -> { [key]: details | null }: one alias per pull request. null when it
-// couldn't be read this time (gone, or no answer): the caller keeps what it had.
+// couldn't be read this time (gone, no answer, or not a pull request's key): the caller keeps what
+// it had. With no valid key there's nothing to ask (an empty query is an error).
 export async function details(cfg, keys) {
-  if (!keys.length) return {};
   const fields = keys.map((k, i) => {
     const p = parsePin(k);
-    return p ? `d${i}: repository(owner: ${JSON.stringify(p.owner)}, name: ${JSON.stringify(p.name)}) {
-      pullRequest(number: ${p.number}) { ${DETAIL_FIELDS} } }` : "";
-  }).join("\n");
+    return p && `d${i}: repository(owner: ${JSON.stringify(p.owner)}, name: ${JSON.stringify(p.name)}) {
+      pullRequest(number: ${p.number}) { ${DETAIL_FIELDS} } }`;
+  }).filter(Boolean).join("\n");
+  if (!fields) return Object.fromEntries(keys.map((k) => [k, null]));
   const res = JSON.parse(await gh(["api", "graphql", ...host(cfg), "-f", `query=query { ${fields} }`], { partial: true }));
   if (!res.data) throw new Error(res.errors?.[0]?.message ?? "GitHub returned no data");
   return Object.fromEntries(keys.map((k, i) => [k, res.data[`d${i}`]?.pullRequest ?? null]));
