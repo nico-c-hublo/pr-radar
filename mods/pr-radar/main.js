@@ -112,7 +112,10 @@ export default class PrRadar extends View {
           : await Promise.all([overview(this.cfg, this.pins()), discussions(this.cfg)]);
         if (!this.cfg.demo) this.announce(o, threads);
         setShared(this.stateKey, { ...o, threads, at: Date.now(), error: this.cfg.problems[0] ?? null });
-        if (this.cfg.recaps !== "off") await this.updateRecaps(o);
+        // Recaps are extra: whatever goes wrong there mustn't undo the check that just succeeded.
+        if (this.cfg.recaps !== "off") {
+          try { await this.updateRecaps(o); } catch (e) { console.log(`pr-radar: recaps: ${e?.message ?? e}`); }
+        }
       } catch (e) {
         console.log(`pr-radar: ${e?.message ?? e}`);
         setShared(this.stateKey, { ...prev, error: String(e?.message ?? e), at: Date.now() });
@@ -138,7 +141,7 @@ export default class PrRadar extends View {
       .slice(0, RECAP_FETCH);
     let got = {};
     try { got = this.cfg.demo ? demoDetails(due) : await details(this.cfg, due); }
-    catch (e) { console.log(`pr-radar: recaps: ${e?.message ?? e}`); }
+    catch (e) { console.log(`pr-radar: recaps: ${e?.message ?? e}`); } // keep what was known
     const next = {};
     for (const k of keys) {
       const c = got[k] ? { updated: byKey.get(k).updated, at: now, details: got[k] } : prev[k];

@@ -34,7 +34,7 @@ export function story(pr, me) {
 
   const requested = nodes(pr.reviewRequests).map((r) => r.requestedReviewer).filter(Boolean);
   const waitingOn = {
-    users: requested.filter((r) => r.login && r.__typename !== "Bot" && r.login !== me).map((r) => r.login),
+    users: requested.filter((r) => r.login && r.__typename !== "Bot").map((r) => who(r.login)), // "you" too
     teams: requested.filter((r) => r.__typename === "Team").map((r) => r.slug),
   };
 

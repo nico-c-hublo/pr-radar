@@ -54,7 +54,12 @@ test("nothing new since your review", () => {
 test("never reviewed: nothing is said about since your review", () => {
   const p = pr({ requested: ["me"] });
   assert.equal(story(p, "me").pushedSinceMyReview, null);
-  assert.equal(recap(p), "no reviewers yet"); // the viewer isn't listed as someone it's waiting on
+  assert.equal(recap(p), "waiting on you");
+});
+
+test("a review asked of you is never 'no reviewers yet'", () => {
+  assert.equal(recap(pr({ requested: ["@planning", "me"] })), "waiting on team planning and you");
+  assert.equal(recap(pr({ requested: ["me"] }), "me", fr), "en attente de toi");
 });
 
 test("on your own pull request, threads where someone else spoke last wait on you", () => {

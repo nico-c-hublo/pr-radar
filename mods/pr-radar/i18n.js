@@ -100,7 +100,7 @@ const fr = {
     ciRed: "CI rouge",
     behind: (base) => `en retard sur ${base}`,
     ready: "prête à merger",
-    waitingOn: (teams, users) => `en attente de ${list([...teams.map((t) => `l'équipe ${t}`), ...users], "et", autres)}`,
+    waitingOn: (teams, users) => `en attente de ${list([...teams.map((t) => `l'équipe ${t}`), ...users.map(toi)], "et", autres)}`,
     approved: (a) => (a.length === 1
       ? `${a[0].by === "you" ? "tu as approuvé" : `${a[0].by} a approuvé`}${a[0].teams.length ? ` pour l'équipe ${list(a[0].teams, "et", autres)}` : ""}`
       : `approuvée par ${list(a.map((x) => (x.teams.length ? `${toi(x.by)} (${x.teams.join(", ")})` : toi(x.by))), "et", autres)}`),
