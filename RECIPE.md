@@ -30,14 +30,15 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   request's row, in any section, has a `draft` tag before its title (10 px, `dim`, a 1 px `border`
   outline, 4 px corners) and its title in `muted` instead of `foreground`.
 - **Recaps** (`recaps: "plain"`): a pull request row with a recap is 44 px high instead of 30, and
-  the recap is a second line under the title (and its `draft` tag), 11 px in `dim`, cut off with
-  an ellipsis, its full text in a tooltip. Lowercase, clauses joined by ` · `, three at most:
-  `2 threads wait on you · conflicts with main · changes requested by maya`. A pinned row's recap
-  has every clause and wraps (`whitespace_normal`, no tooltip): its row is at least 44 px, with
-  6 px above and below, and grows with it. The excerpts (the last comment of each thread waiting on you or
-  answered by a reply since your review, newest first, three at most, whitespace collapsed, cut at
-  a word to 120 characters) are under a pinned row's recap, one `↳ maya: "…"` line each, 11 px in
-  `muted`, cut off; in other rows they follow the recap in its tooltip, a line each.
+  the recap is a second line under the title (and its `draft` tag), 11 px in `dim`, cut off with an
+  ellipsis, its full text in a tooltip. Lowercase, clauses joined by ` · `, three at most: `2
+  threads wait on you · conflicts with main · changes requested by maya`. A pinned row's recap has
+  every clause and wraps (`whitespace_normal`, no tooltip), under the whole row rather than beside
+  the notes: the row's usual line (22 px), then the recap and excerpts from the repo column (24 px
+  in) to the right edge, 6 px above and below. The excerpts (the last comment of each thread waiting
+  on you or answered by a reply since your review, newest first, three at most, whitespace
+  collapsed, cut at a word to 120 characters) are under a pinned row's recap, one `↳ maya: "…"` line
+  each, 11 px in `muted`, cut off; in other rows they follow the recap in its tooltip, a line each.
 - **Pins**: each pull request row ends with a 20 px slot for a `📌` (12 px). Unpinned, it shows only
   while the row is hovered, at 35% opacity and full when the pin itself is hovered; pinned, it's
   always there at full opacity (60% on hover). A click pins or unpins without opening the row. Pinned pull requests leave their sections for a

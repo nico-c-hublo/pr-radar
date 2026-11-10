@@ -285,25 +285,32 @@ export default class PrRadar extends View {
     // The thread excerpts go in the tooltip, or under a pinned one's recap.
     const row = (icon, color, where, title, extra, url, key = null, draft = false) => {
       const id = `prr-row-${n++}`, recap = recapOf(key), wrap = Boolean(recap) && pinned.has(key), said = recap ? saidOf(key) : [];
-      return h_flex().id(id).when(!wrap, (e) => e.h(recap ? 44 : 30)).when(wrap, (e) => e.min_h(44).py(6))
-      .flex_none().px(10).gap(10).items_center()
-      .rounded(5).cursor_pointer().hover((h) => h.bg(t.hover)).on_click(() => { openUrl(url); close(); })
-      .when(Boolean(key), (e) => e.on_hover((hovered, cx) => {
-        if (hovered) this.hoverRow = id; else if (this.hoverRow === id) this.hoverRow = null;
-        cx.notify();
-      }))
-      .child(div().w(14).flex_none().text_color(color).child(icon))
-      .child(div().w(150).flex_none().truncate().text_size(11.5).text_color(t.dim).child(where))
-      .child(v_flex().flex_1().min_w(0).gap(2)
-        .child(h_flex().gap(10).items_center().min_w(0)
-          .when(draft, (e) => e.child(draftTag()))
-          .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(draft ? t.muted : t.foreground).child(title)))
-        .when(Boolean(recap) && !wrap, (e) => e.child(div().id(`${id}-recap`).truncate().text_size(11).text_color(t.dim)
-          .tooltip([recap, ...said].join("\n")).child(recap)))
-        .when(wrap, (e) => e.child(div().whitespace_normal().text_size(11).text_color(t.dim).child(recap))
-          .children(said.map((line) => div().truncate().text_size(11).text_color(t.muted).child(`↳ ${line}`)))))
-      .child(div().flex_none().text_size(11).text_color(t.dim).child(extra ?? ""))
-      .child(pin(key, id));
+      // What every row is: a link to the pull request, which reveals its 📌 while hovered.
+      const shell = (e) => e.id(id).flex_none().px(10).rounded(5).cursor_pointer().hover((h) => h.bg(t.hover))
+        .on_click(() => { openUrl(url); close(); })
+        .when(Boolean(key), (e) => e.on_hover((hovered, cx) => {
+          if (hovered) this.hoverRow = id; else if (this.hoverRow === id) this.hoverRow = null;
+          cx.notify();
+        }));
+      const cells = (e) => e
+        .child(div().w(14).flex_none().text_color(color).child(icon))
+        .child(div().w(150).flex_none().truncate().text_size(11.5).text_color(t.dim).child(where))
+        .child(v_flex().flex_1().min_w(0).gap(2)
+          .child(h_flex().gap(10).items_center().min_w(0)
+            .when(draft, (e) => e.child(draftTag()))
+            .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(draft ? t.muted : t.foreground).child(title)))
+          .when(Boolean(recap) && !wrap, (e) => e.child(div().id(`${id}-recap`).truncate().text_size(11).text_color(t.dim)
+            .tooltip([recap, ...said].join("\n")).child(recap))))
+        .child(div().flex_none().text_size(11).text_color(t.dim).child(extra ?? ""))
+        .child(pin(key, id));
+      if (!wrap) return shell(cells(h_flex().h(recap ? 44 : 30).gap(10).items_center()));
+      // A pinned row: its recap and excerpts go under the whole row, from the repo column to the right
+      // edge, where they have room (beside the title, the notes and 📌 leave them a narrow column).
+      return shell(v_flex().py(6).gap(3)
+        .child(cells(h_flex().h(22).gap(10).items_center()))
+        .child(v_flex().pl(24).gap(2)
+          .child(div().whitespace_normal().text_size(11).text_color(t.dim).child(recap))
+          .children(said.map((line) => div().truncate().text_size(11).text_color(t.muted).child(`↳ ${line}`)))));
     };
     const section = (key, rows) => v_flex().gap(2).pt(10)
       .child(div().px(10).pb(4).text_size(10.5).text_color(t.dim).child(s.sections[key].toUpperCase()))
