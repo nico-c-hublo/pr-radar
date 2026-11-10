@@ -56,7 +56,9 @@ where it stands, from your point of view, most pressing first:
 - `2 threads wait on you`: unresolved threads on your pull request where someone else spoke last,
   on code you haven't changed since;
 - `conflicts with main` / `behind main`;
-- `ana answered your 2 threads` (replied since your last review, or changed the code under them) /
+- `ana answered your 2 threads` (replied since your last review), `ana changed the code on your
+  thread` (it's outdated since), or both in one: `ana answered 2 of your threads and changed the
+  code on 1 more` /
   `pushed since your review` / `rebased since your review` /
   `nothing new since your review` (merging the base branch in is nothing new);
 - `changes requested by maya`, `CI red`;

@@ -108,8 +108,9 @@ export function story(pr, me, { asked = null, teams = [] } = {}) {
   // On your pull request: someone else spoke last, on code you haven't changed since (an outdated
   // one is theirs to look at again).
   const waiting = role === "author" ? open.filter((t) => spoke(t.last) && t.last.login !== me && !t.outdated) : [];
-  // On someone else's, threads you started that were answered since your last review: the author
-  // replied, or changed the code under them (outdated, with a push or rebase since your review).
+  // On someone else's, threads you started that moved since your last review: the author replied
+  // (answered), or changed the code under them (changed: outdated, with a push or rebase since
+  // your review, and you spoke last). Told apart: a code change isn't an answer.
   const replied = role !== "author" ? open.filter((t) => t.starter?.login === me && t.last?.login === author && unseen(t)) : [];
   const changed = role !== "author" ? open.filter((t) => t.starter?.login === me && t.outdated && t.last?.login === me && codeChanged) : [];
   // What was said in the threads that ask something of you: their last comment, newest first.
@@ -119,7 +120,8 @@ export function story(pr, me, { asked = null, teams = [] } = {}) {
   const threads = {
     open: open.length,
     waitingOnMe: waiting.length,
-    answered: new Set([...replied, ...changed]).size,
+    answered: replied.length,
+    changed: changed.length,
     capped: (pr.reviewThreads?.totalCount ?? 0) > nodes(pr.reviewThreads).length,
   };
 
@@ -144,7 +146,10 @@ export function plainRecap(st, s, { all = false } = {}) {
   const clauses = [];
   if (st.threads.waitingOnMe) clauses.push(r.waitingOnMe(n(st.threads.waitingOnMe)));
   if (st.merge === "conflicts") clauses.push(r.conflicts(st.base));
-  if (st.threads.answered) clauses.push(r.answered(st.author, n(st.threads.answered)));
+  const { answered, changed } = st.threads;
+  if (answered && changed) clauses.push(r.answeredAndChanged(st.author, answered, changed));
+  else if (answered) clauses.push(r.answered(st.author, n(answered)));
+  else if (changed) clauses.push(r.changed(st.author, changed));
   if (st.sinceMyReview === "pushed") clauses.push(r.pushed);
   if (st.sinceMyReview === "rebased") clauses.push(r.rebased);
   if (st.changesRequested.length) clauses.push(r.changesRequested(st.changesRequested.map((c) => c.by)));
@@ -157,7 +162,7 @@ export function plainRecap(st, s, { all = false } = {}) {
   // Approved by some, yet GitHub still wants a review and nobody else is asked: say it's not done.
   else if (st.decision === "review-required" && st.approvals.length) clauses.push(r.needsApproval);
   if (st.approvals.length) clauses.push(r.approved(st.approvals, st.myTeamCovered));
-  if (st.role !== "author" && st.sinceMyReview === "nothing" && !st.threads.answered) clauses.push(r.nothingNew);
+  if (st.role !== "author" && st.sinceMyReview === "nothing" && !answered && !changed) clauses.push(r.nothingNew);
   if (!clauses.length && st.merge === "unstable") clauses.push(r.unstable);
   // A draft says so only here, where it's why nobody's asked yet (the row's tag says it otherwise).
   if (!clauses.length && !st.approvals.length && !st.changesRequested.length) clauses.push(st.draft ? r.draftNoReviewers : r.noReviewers);

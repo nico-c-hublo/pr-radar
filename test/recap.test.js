@@ -102,8 +102,10 @@ test("since your review: without the commits (details stored before they were fe
 });
 
 // Threads: outdated (the code under them changed) and when the last comment was made.
-const reviewedOld = (threads, commits = [commit("old"), commit("head", AFTER)]) =>
-  story(pr({ latest: [review("me", "COMMENTED", "old")], commits, threads }), "me").threads.answered;
+const reviewedOldThreads = (threads, commits = [commit("old"), commit("head", AFTER)]) =>
+  story(pr({ latest: [review("me", "COMMENTED", "old")], commits, threads }), "me").threads;
+const reviewedOld = (threads, commits) => reviewedOldThreads(threads, commits).answered;
+const codeChangedOn = (threads, commits) => reviewedOldThreads(threads, commits).changed;
 
 test("threads: an answer only counts if it came after your last review", () => {
   assert.equal(reviewedOld([thread("me", "ana", false, { at: AFTER })]), 1);
@@ -112,11 +114,25 @@ test("threads: an answer only counts if it came after your last review", () => {
 });
 
 test("threads: changing the code under your thread answers it, if it changed since your review", () => {
-  assert.equal(reviewedOld([thread("me", "me", false, { outdated: true })]), 1);
-  assert.equal(reviewedOld([thread("me", "me", false, { outdated: true })], [commit("old"), commit("head", AFTER, 2)]), 0); // only a merge since
-  assert.equal(reviewedOld([thread("me", "me")]), 0); // not outdated: still waiting on the author
+  assert.equal(codeChangedOn([thread("me", "me", false, { outdated: true })]), 1);
+  assert.equal(reviewedOld([thread("me", "me", false, { outdated: true })]), 0); // not an answer
+  assert.equal(codeChangedOn([thread("me", "me", false, { outdated: true })], [commit("old"), commit("head", AFTER, 2)]), 0); // only a merge since
+  assert.equal(codeChangedOn([thread("me", "me")]), 0); // not outdated: still waiting on the author
   assert.equal(recap(pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("old"), commit("head", AFTER)],
-    threads: [thread("me", "me", false, { outdated: true })] })), "ana answered your thread · pushed since your review");
+    threads: [thread("me", "me", false, { outdated: true })] })), "ana changed the code on your thread · pushed since your review");
+});
+
+test("threads: replies and code changes are told apart, in one clause when both", () => {
+  const both = pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("old"), commit("head", AFTER)], threads: [
+    thread("me", "ana", false, { at: AFTER }), thread("me", "ana", false, { at: AFTER }),
+    thread("me", "me", false, { outdated: true }),
+  ] });
+  assert.equal(recap(both), "ana answered 2 of your threads and changed the code on 1 more · pushed since your review");
+  assert.equal(recap(both, "me", fr), "ana a répondu à 2 de tes fils et modifié le code de 1 autre · nouveaux commits depuis ta review");
+  const changedOnly = pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("old"), commit("head", AFTER)], threads: [
+    thread("me", "me", false, { outdated: true }), thread("me", "me", false, { outdated: true }),
+  ] });
+  assert.equal(recap(changedOnly, "me", fr), "ana a modifié le code de tes 2 fils · nouveaux commits depuis ta review");
 });
 
 test("threads: on your pull request, an outdated thread is the reviewer's turn", () => {
@@ -196,7 +212,8 @@ test("excerpts: on someone else's, the author's replies since your review, newes
     thread("me", "me", false, { at: T4, text: "answered by code only", outdated: true }),
   ] });
   const st = story(p, "me");
-  assert.equal(st.threads.answered, 5);
+  assert.equal(st.threads.answered, 4);
+  assert.equal(st.threads.changed, 1);
   assert.deepEqual(st.excerpts.map((x) => x.text), ["four", "three", "two"]);
   assert.deepEqual(st.excerpts.map((x) => x.by), ["ana", "ana", "ana"]);
 });
