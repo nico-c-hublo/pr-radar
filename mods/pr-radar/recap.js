@@ -99,7 +99,9 @@ const MAX_CLAUSES = 3;
 
 // The story as one sentence: what asks something of you, then what blocks the merge, then progress.
 // Lowercase, like the panel's other notes: a sentence often starts with a login, which keeps its case.
-export function plainRecap(st, s) {
+// MAX_CLAUSES at most, so it fits a row's line; `all` says everything (a pinned pull request's,
+// which the panel lets wrap).
+export function plainRecap(st, s, { all = false } = {}) {
   const r = s.recap;
   if (!st.detailed) return null; // no details fetched yet: say nothing rather than half
   const n = (count) => (st.threads.capped && count === st.threads.open ? `${count}+` : count);
@@ -121,7 +123,7 @@ export function plainRecap(st, s) {
   if (!clauses.length && st.merge === "unstable") clauses.push(r.unstable);
   // A draft says so only here, where it's why nobody's asked yet (the row's tag says it otherwise).
   if (!clauses.length && !st.approvals.length && !st.changesRequested.length) clauses.push(st.draft ? r.draftNoReviewers : r.noReviewers);
-  return clauses.slice(0, MAX_CLAUSES).join(" · ");
+  return (all ? clauses : clauses.slice(0, MAX_CLAUSES)).join(" · ");
 }
 
 // Which pull requests get a recap: at most RECAP_MAX (pinned, then mine, then reviews asked of me,
@@ -131,10 +133,11 @@ export const RECAP_MAX = 30, RECAP_FETCH = 15, RECAP_STALE = 15 * 60000;
 
 // o: a check's answer (github.js overview); prev: the recaps stored after the last check
 // ({ [key]: { updated, at, details, plain } }); fetchDetails(keys) -> { [key]: details | null }.
+// A pinned pull request's recap says everything (plainRecap's `all`): it's the one you follow.
 // -> { recaps, errors }. Never throws: recaps are extra, and a failure mustn't undo the check. A
 // failed fetch keeps the details known; a recap that can't be built keeps its last sentence.
 export async function nextRecaps(o, prev, fetchDetails, s, now = Date.now()) {
-  const errors = [], byKey = new Map();
+  const errors = [], byKey = new Map(), pinned = new Set((o?.pinned ?? []).map((p) => p.key));
   const add = (p) => { if (p?.key && p.title && !byKey.has(p.key)) byKey.set(p.key, p); };
   (o?.pinned ?? []).forEach(add);
   (o?.prs ?? []).forEach(add);
@@ -152,7 +155,7 @@ export async function nextRecaps(o, prev, fetchDetails, s, now = Date.now()) {
     const c = got[k] ? { updated: byKey.get(k).updated, at: now, details: got[k] } : prev?.[k];
     if (!c) continue;
     try {
-      recaps[k] = { ...c, plain: plainRecap(story({ ...byKey.get(k), ...c.details }, o.me), s) };
+      recaps[k] = { ...c, plain: plainRecap(story({ ...byKey.get(k), ...c.details }, o.me), s, { all: pinned.has(k) }) };
     } catch (e) {
       errors.push(`${k}: ${e?.message ?? e}`);
       if (prev?.[k]) recaps[k] = prev[k];

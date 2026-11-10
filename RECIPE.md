@@ -32,7 +32,9 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
 - **Recaps** (`recaps: "plain"`): a pull request row with a recap is 44 px high instead of 30, and
   the recap is a second line under the title (and its `draft` tag), 11 px in `dim`, cut off with
   an ellipsis, its full text in a tooltip. Lowercase, clauses joined by ` · `, three at most:
-  `2 threads wait on you · conflicts with main · changes requested by maya`.
+  `2 threads wait on you · conflicts with main · changes requested by maya`. A pinned row's recap
+  has every clause and wraps (`whitespace_normal`, no tooltip): its row is at least 44 px, with
+  6 px above and below, and grows with it.
 - **Pins**: each pull request row ends with a 20 px slot for a `📌` (12 px). Unpinned, it shows only
   while the row is hovered, at 35% opacity and full when the pin itself is hovered; pinned, it's
   always there at full opacity (60% on hover). A click pins or unpins without opening the row. Pinned pull requests leave their sections for a

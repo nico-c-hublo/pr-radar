@@ -277,6 +277,17 @@ test("nextRecaps: nothing due, nothing fetched; pull requests no longer listed a
   assert.deepEqual(Object.keys(recaps), ["a/b#1"]);
 });
 
+test("a pinned pull request's recap says everything, the others three things at most", async () => {
+  const busy = { ci: "failed", mergeable: "CONFLICTING", mergeState: "DIRTY" };
+  const d = detailsOf([review("maya", "CHANGES_REQUESTED"), review("bill", "APPROVED", "head", ["alpha"])]);
+  d.reviewRequests = { nodes: [{ requestedReviewer: { __typename: "Team", slug: "beta" } }] };
+  const o = { ...check([listed("a/b#2", busy)]), pinned: [listed("a/b#1", busy)] };
+  const { fetch } = fetcher({ "a/b#1": d, "a/b#2": d });
+  const { recaps } = await nextRecaps(o, {}, fetch, en, 0);
+  assert.equal(recaps["a/b#1"].plain, "conflicts with main · changes requested by maya · CI red · waiting on team beta · bill approved for team alpha");
+  assert.equal(recaps["a/b#2"].plain, "conflicts with main · changes requested by maya · CI red");
+});
+
 test("nextRecaps: at most RECAP_FETCH fetched per check, pinned and mine first", async () => {
   const mine = Array.from({ length: RECAP_FETCH + 5 }, (_, i) => listed(`a/b#${i + 1}`));
   const { fetch, calls } = fetcher({});

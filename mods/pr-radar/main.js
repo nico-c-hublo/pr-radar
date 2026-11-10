@@ -272,10 +272,12 @@ export default class PrRadar extends View {
     // A draft pull request's row: a `draft` tag before its title, and the title faded.
     const draftTag = () => div().flex_none().px(5).rounded(4).border_1().border_color(t.border)
       .text_size(10).text_color(t.dim).child(s.draft);
-    // A pull request with a recap gets it on a second line, under its title.
+    // A pull request with a recap gets it on a second line, under its title: cut off to fit, with
+    // the rest in a tooltip, except a pinned one's, which says everything and wraps (its row grows).
     const row = (icon, color, where, title, extra, url, key = null, draft = false) => {
-      const id = `prr-row-${n++}`, recap = recapOf(key);
-      return h_flex().id(id).h(recap ? 44 : 30).flex_none().px(10).gap(10).items_center()
+      const id = `prr-row-${n++}`, recap = recapOf(key), wrap = Boolean(recap) && pinned.has(key);
+      return h_flex().id(id).when(!wrap, (e) => e.h(recap ? 44 : 30)).when(wrap, (e) => e.min_h(44).py(6))
+      .flex_none().px(10).gap(10).items_center()
       .rounded(5).cursor_pointer().hover((h) => h.bg(t.hover)).on_click(() => { openUrl(url); close(); })
       .when(Boolean(key), (e) => e.on_hover((hovered, cx) => {
         if (hovered) this.hoverRow = id; else if (this.hoverRow === id) this.hoverRow = null;
@@ -287,8 +289,9 @@ export default class PrRadar extends View {
         .child(h_flex().gap(10).items_center().min_w(0)
           .when(draft, (e) => e.child(draftTag()))
           .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(draft ? t.muted : t.foreground).child(title)))
-        .when(Boolean(recap), (e) => e.child(div().id(`${id}-recap`).truncate().text_size(11).text_color(t.dim)
-          .tooltip(recap).child(recap))))
+        .when(Boolean(recap) && !wrap, (e) => e.child(div().id(`${id}-recap`).truncate().text_size(11).text_color(t.dim)
+          .tooltip(recap).child(recap)))
+        .when(wrap, (e) => e.child(div().whitespace_normal().text_size(11).text_color(t.dim).child(recap))))
       .child(div().flex_none().text_size(11).text_color(t.dim).child(extra ?? ""))
       .child(pin(key, id));
     };
