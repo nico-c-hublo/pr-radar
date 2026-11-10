@@ -46,7 +46,8 @@ const user = (login) => ({ login, __typename: "User" });
 const team = (slug) => ({ __typename: "Team", slug });
 const review = (login, state, oid, teams = []) => ({ state, submittedAt: "2026-01-02T00:00:00Z", author: user(login), commit: { oid }, onBehalfOf: { nodes: teams.map((slug) => ({ slug })) } });
 const commit = (oid, authoredDate = "2026-01-01T00:00:00Z") => ({ commit: { oid, authoredDate, parents: { totalCount: 1 } } });
-const thread = (starter, last) => ({ isResolved: false, first: { nodes: [{ author: user(starter) }] }, last: { nodes: [{ author: user(last) }] } });
+const thread = (starter, last) => ({ isResolved: false, isOutdated: false, first: { nodes: [{ author: user(starter) }] },
+  last: { nodes: [{ createdAt: "2026-01-03T00:00:00Z", author: user(last) }] } });
 const detail = ({ asked = [], opinions = [], latest = opinions, threads = [], commits = [] }) => ({
   commits: { nodes: commits },
   reviewRequests: { nodes: asked.map((requestedReviewer) => ({ requestedReviewer })) },

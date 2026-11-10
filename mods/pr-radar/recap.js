@@ -62,19 +62,29 @@ export function story(pr, me) {
     teams: requested.filter((r) => r.__typename === "Team").map((r) => r.slug),
   };
 
-  const sinceMyReview = since(pr, nodes(pr.latestReviews).find((r) => r.author?.login === me));
+  const mine = nodes(pr.latestReviews).find((r) => r.author?.login === me);
+  const sinceMyReview = since(pr, mine);
+  const reviewedAt = Date.parse(mine?.submittedAt); // NaN: never reviewed, or not known
 
-  // Unresolved threads, by who started them and who spoke last (bots don't count as speaking).
+  // Unresolved threads: who started them, who spoke last and when (bots don't count as speaking),
+  // and whether the code under them has changed since (outdated).
   const open = nodes(pr.reviewThreads).filter((t) => !t.isResolved).map((t) => ({
     starter: nodes(t.first)[0]?.author, last: nodes(t.last)[0]?.author,
+    lastAt: Date.parse(nodes(t.last)[0]?.createdAt), outdated: Boolean(t.isOutdated),
   }));
   const spoke = (a) => a && !isBot(a);
+  // A reply you haven't reviewed since (with no time known, it counts).
+  const unseen = (t) => !(t.lastAt <= reviewedAt);
+  const codeChanged = sinceMyReview === "pushed" || sinceMyReview === "rebased";
   const threads = {
     open: open.length,
-    // On your pull request: someone else spoke last.
-    waitingOnMe: role === "author" ? open.filter((t) => spoke(t.last) && t.last.login !== me).length : 0,
-    // On someone else's: threads you started where the author spoke last.
-    answered: role === "reviewer" ? open.filter((t) => t.starter?.login === me && t.last?.login === author).length : 0,
+    // On your pull request: someone else spoke last, on code you haven't changed since (an outdated
+    // one is theirs to look at again).
+    waitingOnMe: role === "author" ? open.filter((t) => spoke(t.last) && t.last.login !== me && !t.outdated).length : 0,
+    // On someone else's, threads you started that were answered since your last review: the author
+    // replied, or changed the code under them (outdated, with a push or rebase since your review).
+    answered: role === "reviewer" ? open.filter((t) => t.starter?.login === me
+      && ((t.last?.login === author && unseen(t)) || (t.outdated && t.last?.login === me && codeChanged))).length : 0,
     capped: (pr.reviewThreads?.totalCount ?? 0) > nodes(pr.reviewThreads).length,
   };
 

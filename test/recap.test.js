@@ -12,8 +12,9 @@ const review = (login, state, oid = "head", teams = []) => ({ submittedAt: REVIE
   author: login.endsWith("[bot]") ? bot(login) : user(login), state, commit: { oid },
   onBehalfOf: { nodes: teams.map((slug) => ({ slug })) },
 });
-const thread = (starter, last, isResolved = false) => ({
-  isResolved, first: { nodes: [{ author: user(starter) }] }, last: { nodes: [{ author: last.endsWith("[bot]") ? bot(last) : user(last) }] },
+const thread = (starter, last, isResolved = false, { outdated = false, at } = {}) => ({
+  isResolved, isOutdated: outdated, first: { nodes: [{ author: user(starter) }] },
+  last: { nodes: [{ createdAt: at, author: last.endsWith("[bot]") ? bot(last) : user(last) }] },
 });
 const pr = ({ author = "ana", requested = [], opinions = [], latest = opinions, threads = [], total, commits = [], ...rest } = {}) => ({
   author, draft: false, ci: "success", oid: "head", mergeable: "MERGEABLE", mergeState: "BLOCKED", base: "main",
@@ -98,6 +99,30 @@ test("since your review: without the commits (details stored before they were fe
   const p = { ...pr({ latest: [review("me", "COMMENTED", "old")] }), commits: undefined };
   assert.equal(story(p, "me").sinceMyReview, undefined);
   assert.equal(recap(p), "no reviewers yet");
+});
+
+// Threads: outdated (the code under them changed) and when the last comment was made.
+const reviewedOld = (threads, commits = [commit("old"), commit("head", AFTER)]) =>
+  story(pr({ latest: [review("me", "COMMENTED", "old")], commits, threads }), "me").threads.answered;
+
+test("threads: an answer only counts if it came after your last review", () => {
+  assert.equal(reviewedOld([thread("me", "ana", false, { at: AFTER })]), 1);
+  assert.equal(reviewedOld([thread("me", "ana", false, { at: BEFORE })]), 0); // you've reviewed since
+  assert.equal(reviewedOld([thread("me", "ana")]), 1); // no time known: it counts
+});
+
+test("threads: changing the code under your thread answers it, if it changed since your review", () => {
+  assert.equal(reviewedOld([thread("me", "me", false, { outdated: true })]), 1);
+  assert.equal(reviewedOld([thread("me", "me", false, { outdated: true })], [commit("old"), commit("head", AFTER, 2)]), 0); // only a merge since
+  assert.equal(reviewedOld([thread("me", "me")]), 0); // not outdated: still waiting on the author
+  assert.equal(recap(pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("old"), commit("head", AFTER)],
+    threads: [thread("me", "me", false, { outdated: true })] })), "ana answered your thread · pushed since your review");
+});
+
+test("threads: on your pull request, an outdated thread is the reviewer's turn", () => {
+  const p = pr({ author: "me", threads: [thread("leo", "leo", false, { outdated: true }), thread("leo", "leo")] });
+  assert.equal(story(p, "me").threads.waitingOnMe, 1);
+  assert.equal(recap(p), "1 thread waits on you");
 });
 
 test("on your own pull request, threads where someone else spoke last wait on you", () => {

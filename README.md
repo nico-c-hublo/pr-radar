@@ -53,9 +53,11 @@ configuration, across restarts. Click its 📌 again to unpin.
 With `"recaps": "plain"`, each pull request in the panel gets a second line under its title saying
 where it stands, from your point of view, most pressing first:
 
-- `2 threads wait on you`: unresolved threads on your pull request where someone else spoke last;
+- `2 threads wait on you`: unresolved threads on your pull request where someone else spoke last,
+  on code you haven't changed since;
 - `conflicts with main` / `behind main`;
-- `ana answered your 2 threads` / `pushed since your review` / `rebased since your review` /
+- `ana answered your 2 threads` (replied since your last review, or changed the code under them) /
+  `pushed since your review` / `rebased since your review` /
   `nothing new since your review` (merging the base branch in is nothing new);
 - `changes requested by maya`, `CI red`;
 - `waiting on team beta and leo`, `bill approved for team alpha` (the team a review counted for,

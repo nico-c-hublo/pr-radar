@@ -141,16 +141,16 @@ export async function discussions(cfg) {
 }
 
 // What a recap needs beyond P (recap.js): who's still asked, the latest reviews and the teams they
-// count for, the review threads with who started them and who spoke last, and the last commits (to
+// count for, the review threads (outdated or not, who started them, who spoke last and when), and the last commits (to
 // tell a push since your review from a rebase or a merge of the base branch).
 const DETAIL_FIELDS = `
   reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on User { login } ... on Team { slug } } } }
   latestOpinionatedReviews(first: 20) { nodes { state author { login __typename } commit { oid } onBehalfOf(first: 5) { nodes { slug } } } }
   latestReviews(first: 20) { nodes { state submittedAt author { login __typename } commit { oid } } }
   commits(last: 50) { nodes { commit { oid authoredDate parents { totalCount } } } }
-  reviewThreads(first: 50) { totalCount nodes { isResolved
+  reviewThreads(first: 50) { totalCount nodes { isResolved isOutdated
     first: comments(first: 1) { nodes { author { login __typename } } }
-    last: comments(last: 1) { nodes { author { login __typename } } } } }`;
+    last: comments(last: 1) { nodes { createdAt author { login __typename } } } } }`;
 
 // keys ("owner/name#123") -> { [key]: details | null }: one alias per pull request. null when it
 // couldn't be read this time (gone, no answer, or not a pull request's key): the caller keeps what
