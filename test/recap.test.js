@@ -6,19 +6,22 @@ import { strings } from "../mods/pr-radar/i18n.js";
 // Fixtures in the shape github.js gives: a pull request with its details (GraphQL's own nodes).
 const user = (login) => ({ login, __typename: "User" });
 const bot = (login) => ({ login, __typename: "Bot" });
-const review = (login, state, oid = "head", teams = []) => ({
+const REVIEWED_AT = "2026-03-02T00:00:00Z", BEFORE = "2026-03-01T00:00:00Z", AFTER = "2026-03-03T00:00:00Z";
+const commit = (oid, authoredDate = BEFORE, parents = 1) => ({ oid, authoredDate, parents: { totalCount: parents } });
+const review = (login, state, oid = "head", teams = []) => ({ submittedAt: REVIEWED_AT,
   author: login.endsWith("[bot]") ? bot(login) : user(login), state, commit: { oid },
   onBehalfOf: { nodes: teams.map((slug) => ({ slug })) },
 });
 const thread = (starter, last, isResolved = false) => ({
   isResolved, first: { nodes: [{ author: user(starter) }] }, last: { nodes: [{ author: last.endsWith("[bot]") ? bot(last) : user(last) }] },
 });
-const pr = ({ author = "ana", requested = [], opinions = [], latest = opinions, threads = [], total, ...rest } = {}) => ({
+const pr = ({ author = "ana", requested = [], opinions = [], latest = opinions, threads = [], total, commits = [], ...rest } = {}) => ({
   author, draft: false, ci: "success", oid: "head", mergeable: "MERGEABLE", mergeState: "BLOCKED", base: "main",
   reviewRequests: { nodes: requested.map((r) => ({ requestedReviewer: r.startsWith("@") ? { __typename: "Team", slug: r.slice(1) } : user(r) })) },
   latestOpinionatedReviews: { nodes: opinions },
   latestReviews: { nodes: latest },
   reviewThreads: { totalCount: total ?? threads.length, nodes: threads },
+  commits: { nodes: commits.map((c) => ({ commit: c })) },
   ...rest,
 });
 const en = strings("en"), fr = strings("fr");
@@ -38,28 +41,63 @@ test("several approvals list their teams", () => {
 });
 
 test("the author answered the threads you opened, and pushed since your review", () => {
-  const p = pr({ latest: [review("me", "COMMENTED", "old")], threads: [thread("me", "ana"), thread("me", "ana"), thread("me", "me"), thread("leo", "ana")] });
+  const p = pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("old"), commit("head", AFTER)],
+    threads: [thread("me", "ana"), thread("me", "ana"), thread("me", "me"), thread("leo", "ana")] });
   const st = story(p, "me");
   assert.equal(st.threads.answered, 2);
-  assert.equal(st.pushedSinceMyReview, true);
+  assert.equal(st.sinceMyReview, "pushed");
   assert.equal(plainRecap(st, en), "ana answered your 2 threads · pushed since your review");
 });
 
 test("nothing new since your review", () => {
   const p = pr({ latest: [review("me", "COMMENTED", "head")], threads: [thread("me", "me")] });
-  assert.equal(story(p, "me").pushedSinceMyReview, false);
+  assert.equal(story(p, "me").sinceMyReview, "nothing");
   assert.equal(recap(p), "nothing new since your review");
 });
 
 test("never reviewed: nothing is said about since your review", () => {
   const p = pr({ requested: ["me"] });
-  assert.equal(story(p, "me").pushedSinceMyReview, null);
+  assert.equal(story(p, "me").sinceMyReview, null);
   assert.equal(recap(p), "waiting on you");
 });
 
 test("a review asked of you is never 'no reviewers yet'", () => {
   assert.equal(recap(pr({ requested: ["@planning", "me"] })), "waiting on team planning and you");
   assert.equal(recap(pr({ requested: ["me"] }), "me", fr), "en attente de toi");
+});
+
+// "Since your review": what changed in the history, not just whether the last commit did.
+const since = (commits) => story(pr({ latest: [review("me", "COMMENTED", "old")], commits }), "me").sinceMyReview;
+
+test("since your review: a new commit after the reviewed one is a push", () => {
+  assert.equal(since([commit("old"), commit("head", AFTER)]), "pushed");
+  assert.equal(recap(pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("old"), commit("head", AFTER)] })), "pushed since your review");
+});
+
+test("since your review: a commit made before the review but pushed after it is still a push", () => {
+  assert.equal(since([commit("old"), commit("head", BEFORE)]), "pushed");
+});
+
+test("since your review: only merges of the base branch are nothing new", () => {
+  assert.equal(since([commit("old"), commit("m1", AFTER, 2), commit("head", AFTER, 2)]), "nothing");
+  assert.equal(recap(pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("old"), commit("head", AFTER, 2)] })), "nothing new since your review");
+});
+
+test("since your review: a rebase is said as one, not as a push", () => {
+  assert.equal(since([commit("a2"), commit("head")]), "rebased"); // rewritten, author dates kept
+  assert.equal(recap(pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("head")] })), "rebased since your review");
+  assert.equal(recap(pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("head")] }), "me", fr), "rebasée depuis ta review");
+});
+
+test("since your review: a rebase with a commit written after the review is a push", () => {
+  assert.equal(since([commit("a2"), commit("head", AFTER)]), "pushed");
+  assert.equal(since([commit("a2"), commit("m1", AFTER, 2), commit("head")]), "rebased"); // a merge isn't new work
+});
+
+test("since your review: without the commits (details stored before they were fetched), nothing is said", () => {
+  const p = { ...pr({ latest: [review("me", "COMMENTED", "old")] }), commits: undefined };
+  assert.equal(story(p, "me").sinceMyReview, undefined);
+  assert.equal(recap(p), "no reviewers yet");
 });
 
 test("on your own pull request, threads where someone else spoke last wait on you", () => {
@@ -153,7 +191,7 @@ test("no details yet: no recap", () => {
 test("French", () => {
   assert.equal(recap(pr({ requested: ["@beta"], opinions: [review("bill", "APPROVED", "head", ["alpha"])] }), "me", fr),
     "en attente de l'équipe beta · bill a approuvé pour l'équipe alpha");
-  assert.equal(recap(pr({ latest: [review("me", "COMMENTED", "old")], threads: [thread("me", "ana")] }), "me", fr),
+  assert.equal(recap(pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("old"), commit("head", AFTER)], threads: [thread("me", "ana")] }), "me", fr),
     "ana a répondu à ton fil · nouveaux commits depuis ta review");
   assert.equal(recap(pr({ opinions: [review("me", "CHANGES_REQUESTED")] }), "me", fr), "changements demandés par toi · rien de nouveau depuis ta review");
   assert.equal(recap(pr({ author: "me", mergeState: "CLEAN" }), "me", fr), "prête à merger");

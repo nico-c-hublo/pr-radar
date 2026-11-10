@@ -44,9 +44,11 @@ export const demoDiscussions = () => [
 // What a recap is made of, for the demo rows (the shape github.js `details` gives).
 const user = (login) => ({ login, __typename: "User" });
 const team = (slug) => ({ __typename: "Team", slug });
-const review = (login, state, oid, teams = []) => ({ state, author: user(login), commit: { oid }, onBehalfOf: { nodes: teams.map((slug) => ({ slug })) } });
+const review = (login, state, oid, teams = []) => ({ state, submittedAt: "2026-01-02T00:00:00Z", author: user(login), commit: { oid }, onBehalfOf: { nodes: teams.map((slug) => ({ slug })) } });
+const commit = (oid, authoredDate = "2026-01-01T00:00:00Z") => ({ commit: { oid, authoredDate, parents: { totalCount: 1 } } });
 const thread = (starter, last) => ({ isResolved: false, first: { nodes: [{ author: user(starter) }] }, last: { nodes: [{ author: user(last) }] } });
-const detail = ({ asked = [], opinions = [], latest = opinions, threads = [] }) => ({
+const detail = ({ asked = [], opinions = [], latest = opinions, threads = [], commits = [] }) => ({
+  commits: { nodes: commits },
   reviewRequests: { nodes: asked.map((requestedReviewer) => ({ requestedReviewer })) },
   latestOpinionatedReviews: { nodes: opinions }, latestReviews: { nodes: latest },
   reviewThreads: { totalCount: threads.length, nodes: threads },
@@ -55,7 +57,8 @@ const DEMO_DETAILS = {
   "acme/web#418": detail({ opinions: [review("maya", "CHANGES_REQUESTED", "demo418")], threads: [thread("maya", "maya"), thread("maya", "maya")] }),
   "acme/api#1301": detail({ asked: [team("backend")], opinions: [review("leo", "APPROVED", "demo1301", ["platform"])] }),
   "acme/web#405": detail({}),
-  "acme/web#412": detail({ latest: [review("you", "COMMENTED", "old412")], threads: [thread("you", "maya"), thread("you", "maya")] }),
+  "acme/web#412": detail({ latest: [review("you", "COMMENTED", "old412")], commits: [commit("old412"), commit("demo412", "2026-01-03T00:00:00Z")],
+    threads: [thread("you", "maya"), thread("you", "maya")] }),
   "acme/api#1290": detail({ opinions: [review("sam", "APPROVED", "demo1290", ["api"])] }),
   "acme/infra#88": detail({ opinions: [review("leo", "APPROVED", "demo88", ["infra"])] }),
 };

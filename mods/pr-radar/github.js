@@ -141,11 +141,13 @@ export async function discussions(cfg) {
 }
 
 // What a recap needs beyond P (recap.js): who's still asked, the latest reviews and the teams they
-// count for, and the review threads with who started them and who spoke last.
+// count for, the review threads with who started them and who spoke last, and the last commits (to
+// tell a push since your review from a rebase or a merge of the base branch).
 const DETAIL_FIELDS = `
   reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on User { login } ... on Team { slug } } } }
   latestOpinionatedReviews(first: 20) { nodes { state author { login __typename } commit { oid } onBehalfOf(first: 5) { nodes { slug } } } }
-  latestReviews(first: 20) { nodes { state author { login __typename } commit { oid } } }
+  latestReviews(first: 20) { nodes { state submittedAt author { login __typename } commit { oid } } }
+  commits(last: 50) { nodes { commit { oid authoredDate parents { totalCount } } } }
   reviewThreads(first: 50) { totalCount nodes { isResolved
     first: comments(first: 1) { nodes { author { login __typename } } }
     last: comments(last: 1) { nodes { author { login __typename } } } } }`;

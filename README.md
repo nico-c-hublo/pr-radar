@@ -55,7 +55,8 @@ where it stands, from your point of view, most pressing first:
 
 - `2 threads wait on you`: unresolved threads on your pull request where someone else spoke last;
 - `conflicts with main` / `behind main`;
-- `ana answered your 2 threads` / `pushed since your review` / `nothing new since your review`;
+- `ana answered your 2 threads` / `pushed since your review` / `rebased since your review` /
+  `nothing new since your review` (merging the base branch in is nothing new);
 - `changes requested by maya`, `CI red`;
 - `waiting on team beta and leo`, `bill approved for team alpha` (the team a review counted for,
   through code owners);

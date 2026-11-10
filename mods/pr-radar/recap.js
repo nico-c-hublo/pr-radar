@@ -6,7 +6,7 @@
 //                          and every recap rebuilt (the badge copy stores the result).
 // `pr` is a pull request as github.js returns it (author, draft, ci, oid, mergeable, mergeState,
 // base) with its details merged in (reviewRequests, latestOpinionatedReviews, latestReviews,
-// reviewThreads: GraphQL's own shape).
+// reviewThreads, commits: GraphQL's own shape).
 
 const nodes = (c) => (Array.isArray(c?.nodes) ? c.nodes.filter(Boolean) : []);
 const isBot = (a) => !a || a.__typename === "Bot" || /\[bot\]$/.test(a.login ?? "");
@@ -22,6 +22,28 @@ function merge(pr) {
     case "CLEAN": case "HAS_HOOKS": return pr.draft ? null : "ready";
     default: return null; // UNKNOWN, DRAFT, missing
   }
+}
+
+// What happened to the code since the viewer's last review (of any kind):
+//   null       never reviewed;
+//   "nothing"  the same commit, or only merges from the base branch on top of it;
+//   "pushed"   new commits;
+//   "rebased"  the history was rewritten (a rebase, an amend) and no commit was written after the
+//              review: rebasing keeps a commit's author date. The code may differ, so it's said;
+//   undefined  the commits weren't fetched (details stored by an older version): nothing is said.
+// With the reviewed commit still in the history, what follows it is new, whatever its author date
+// (commits made before the review can be pushed after it). Merge commits (two parents) don't count.
+function since(pr, mine) {
+  if (!mine) return null;
+  const reviewed = mine.commit?.oid;
+  if (!reviewed || !pr.oid || reviewed === pr.oid) return "nothing";
+  if (!pr.commits) return undefined;
+  const commits = nodes(pr.commits).map((c) => c.commit).filter(Boolean);
+  const own = (c) => (c.parents?.totalCount ?? 1) < 2;
+  const at = commits.findIndex((c) => c.oid === reviewed);
+  if (at >= 0) return commits.slice(at + 1).some(own) ? "pushed" : "nothing";
+  const after = Date.parse(mine.submittedAt);
+  return commits.some((c) => own(c) && Date.parse(c.authoredDate) > after) ? "pushed" : "rebased";
 }
 
 export function story(pr, me) {
@@ -40,9 +62,7 @@ export function story(pr, me) {
     teams: requested.filter((r) => r.__typename === "Team").map((r) => r.slug),
   };
 
-  // The viewer's last review of any kind: what "since your review" is measured from.
-  const mine = nodes(pr.latestReviews).find((r) => r.author?.login === me);
-  const pushedSinceMyReview = mine ? Boolean(pr.oid && mine.commit?.oid && mine.commit.oid !== pr.oid) : null;
+  const sinceMyReview = since(pr, nodes(pr.latestReviews).find((r) => r.author?.login === me));
 
   // Unresolved threads, by who started them and who spoke last (bots don't count as speaking).
   const open = nodes(pr.reviewThreads).filter((t) => !t.isResolved).map((t) => ({
@@ -60,7 +80,7 @@ export function story(pr, me) {
 
   return {
     role, author: who(author), draft: Boolean(pr.draft), ci: pr.ci ?? null, merge: merge(pr), base: pr.base ?? "",
-    approvals, changesRequested, waitingOn, threads, pushedSinceMyReview,
+    approvals, changesRequested, waitingOn, threads, sinceMyReview,
     detailed: Boolean(pr.reviewRequests || pr.latestOpinionatedReviews || pr.latestReviews || pr.reviewThreads),
   };
 }
@@ -77,7 +97,8 @@ export function plainRecap(st, s) {
   if (st.threads.waitingOnMe) clauses.push(r.waitingOnMe(n(st.threads.waitingOnMe)));
   if (st.merge === "conflicts") clauses.push(r.conflicts(st.base));
   if (st.threads.answered) clauses.push(r.answered(st.author, n(st.threads.answered)));
-  if (st.pushedSinceMyReview) clauses.push(r.pushed);
+  if (st.sinceMyReview === "pushed") clauses.push(r.pushed);
+  if (st.sinceMyReview === "rebased") clauses.push(r.rebased);
   if (st.changesRequested.length) clauses.push(r.changesRequested(st.changesRequested.map((c) => c.by)));
   if (st.ci === "failed") clauses.push(r.ciRed);
   if (st.merge === "behind") clauses.push(r.behind(st.base));
@@ -86,7 +107,7 @@ export function plainRecap(st, s) {
   const { users, teams } = st.waitingOn;
   if (users.length || teams.length) clauses.push(r.waitingOn(teams, users));
   if (st.approvals.length) clauses.push(r.approved(st.approvals));
-  if (st.role === "reviewer" && st.pushedSinceMyReview === false && !st.threads.answered) clauses.push(r.nothingNew);
+  if (st.role === "reviewer" && st.sinceMyReview === "nothing" && !st.threads.answered) clauses.push(r.nothingNew);
   if (!clauses.length && st.merge === "unstable") clauses.push(r.unstable);
   // A draft says so only here, where it's why nobody's asked yet (the row's tag says it otherwise).
   if (!clauses.length && !st.approvals.length && !st.changesRequested.length) clauses.push(st.draft ? r.draftNoReviewers : r.noReviewers);
