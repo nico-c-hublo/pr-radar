@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { story, plainRecap, nextRecaps, RECAP_FETCH, RECAP_STALE } from "../mods/pr-radar/recap.js";
+import { story, plainRecap, nextRecaps, nextTeams, RECAP_FETCH, RECAP_STALE, TEAMS_STALE } from "../mods/pr-radar/recap.js";
 import { strings } from "../mods/pr-radar/i18n.js";
 
 // Fixtures in the shape github.js gives: a pull request with its details (GraphQL's own nodes).
@@ -158,6 +158,20 @@ test("decision: approved by some, but GitHub still wants a review and nobody's a
   assert.equal(recap(pr({ author: "me", opinions: [review("bill", "APPROVED")] })), "bill approved");
 });
 
+test("your team: an approval on its behalf covers it, and says so", () => {
+  const p = pr({ requested: ["@sre"], opinions: [review("bill", "APPROVED", "head", ["planning"])] });
+  const st = story(p, "me", { asked: "team", teams: ["planning"] });
+  assert.deepEqual(st.myTeamCovered, ["planning"]);
+  assert.equal(plainRecap(st, en), "waiting on team sre · bill approved for your team planning");
+  assert.equal(plainRecap(st, fr), "en attente de l'équipe sre · bill a approuvé pour ton équipe planning");
+});
+
+test("your team: another team's approval isn't yours; several approvals mark yours", () => {
+  assert.deepEqual(story(pr({ opinions: [review("bill", "APPROVED", "head", ["alpha"])] }), "me", { teams: ["planning"] }).myTeamCovered, []);
+  const p = pr({ opinions: [review("bill", "APPROVED", "head", ["planning", "alpha"]), review("maya", "APPROVED")] });
+  assert.equal(plainRecap(story(p, "me", { teams: ["planning"] }), en), "approved by bill (your team planning, alpha) and maya");
+});
+
 test("on your own pull request, threads where someone else spoke last wait on you", () => {
   const p = pr({ author: "me", threads: [thread("leo", "leo"), thread("leo", "me"), thread("maya", "maya", true), thread("leo", "ci[bot]")] });
   assert.equal(story(p, "me").threads.waitingOnMe, 1);
@@ -268,7 +282,7 @@ const fetcher = (answer) => {
 
 test("nextRecaps: fetches the new pull requests' details and builds their recaps", async () => {
   const { fetch, calls } = fetcher({ "a/b#1": detailsOf([review("bill", "APPROVED")]) });
-  const { recaps, errors } = await nextRecaps(check([listed("a/b#1")]), {}, fetch, en, 1000);
+  const { recaps, errors } = await nextRecaps(check([listed("a/b#1")]), {}, fetch, en, { now: 1000 });
   assert.deepEqual(calls, [["a/b#1"]]);
   assert.deepEqual(errors, []);
   assert.equal(recaps["a/b#1"].plain, "bill approved");
@@ -278,7 +292,7 @@ test("nextRecaps: fetches the new pull requests' details and builds their recaps
 test("nextRecaps: a failed fetch keeps what was known, and doesn't throw", async () => {
   const prev = { "a/b#1": { updated: "t0", at: 0, details: detailsOf([review("bill", "APPROVED")]), plain: "bill approved" } };
   const fetch = async () => { throw new Error("gh exited 1"); };
-  const { recaps, errors } = await nextRecaps(check([listed("a/b#1", { ci: "failed" })]), prev, fetch, en, 1000);
+  const { recaps, errors } = await nextRecaps(check([listed("a/b#1", { ci: "failed" })]), prev, fetch, en, { now: 1000 });
   assert.deepEqual(errors, ["gh exited 1"]);
   assert.equal(recaps["a/b#1"].plain, "CI red · bill approved"); // rebuilt from the known details and this check's CI
   assert.equal(recaps["a/b#1"].updated, "t0"); // still due: fetched again next check
@@ -288,7 +302,7 @@ test("nextRecaps: an answer it can't read keeps that recap's last sentence, the 
   const odd = { get reviewRequests() { throw new Error("unexpected shape"); } };
   const prev = { "a/b#1": { updated: "t0", at: 0, details: detailsOf(), plain: "earlier sentence" } };
   const { fetch } = fetcher({ "a/b#1": odd, "a/b#2": detailsOf([review("maya", "APPROVED")]) });
-  const { recaps, errors } = await nextRecaps(check([listed("a/b#1"), listed("a/b#2")]), prev, fetch, en, 1000);
+  const { recaps, errors } = await nextRecaps(check([listed("a/b#1"), listed("a/b#2")]), prev, fetch, en, { now: 1000 });
   assert.equal(recaps["a/b#1"].plain, "earlier sentence");
   assert.equal(recaps["a/b#2"].plain, "maya approved");
   assert.deepEqual(errors, ["a/b#1: unexpected shape"]);
@@ -298,14 +312,14 @@ test("nextRecaps: details are fetched again only when updated or stale", async (
   const known = (updated, at) => ({ updated, at, details: detailsOf(), plain: "x" });
   const prev = { "a/b#1": known("t1", 0), "a/b#2": known("t0", 0), "a/b#3": known("t1", -RECAP_STALE - 1) };
   const { fetch, calls } = fetcher((keys) => Object.fromEntries(keys.map((k) => [k, detailsOf()])));
-  await nextRecaps(check([listed("a/b#1"), listed("a/b#2"), listed("a/b#3")]), prev, fetch, en, 0);
+  await nextRecaps(check([listed("a/b#1"), listed("a/b#2"), listed("a/b#3")]), prev, fetch, en, { now: 0 });
   assert.deepEqual(calls, [["a/b#2", "a/b#3"]]);
 });
 
 test("nextRecaps: nothing due, nothing fetched; pull requests no longer listed are dropped", async () => {
   const prev = { "a/b#1": { updated: "t1", at: 0, details: detailsOf(), plain: "x" }, "a/b#9": { updated: "t1", at: 0, details: detailsOf(), plain: "y" } };
   const { fetch, calls } = fetcher({});
-  const { recaps } = await nextRecaps(check([listed("a/b#1")]), prev, fetch, en, 0);
+  const { recaps } = await nextRecaps(check([listed("a/b#1")]), prev, fetch, en, { now: 0 });
   assert.deepEqual(calls, []);
   assert.deepEqual(Object.keys(recaps), ["a/b#1"]);
 });
@@ -316,7 +330,7 @@ test("a pinned pull request's recap says everything, the others three things at 
   d.reviewRequests = { nodes: [{ requestedReviewer: { __typename: "Team", slug: "beta" } }] };
   const o = { ...check([listed("a/b#2", busy)]), pinned: [listed("a/b#1", busy)] };
   const { fetch } = fetcher({ "a/b#1": d, "a/b#2": d });
-  const { recaps } = await nextRecaps(o, {}, fetch, en, 0);
+  const { recaps } = await nextRecaps(o, {}, fetch, en, { now: 0 });
   assert.equal(recaps["a/b#1"].plain, "conflicts with main · changes requested by maya · CI red · waiting on team beta · bill approved for team alpha");
   assert.equal(recaps["a/b#2"].plain, "conflicts with main · changes requested by maya · CI red");
 });
@@ -325,16 +339,46 @@ test("nextRecaps: the review decision reaches the recap", async () => {
   const o = { ...check([], [listed("a/b#1", { team: false }), listed("a/b#2", { team: true })]), pinned: [listed("a/b#3")] };
   const d = { ...detailsOf(), latestOpinionatedReviews: { nodes: [review("bill", "APPROVED")] }, reviewDecision: "REVIEW_REQUIRED" };
   const { fetch } = fetcher({ "a/b#1": d, "a/b#2": d, "a/b#3": d });
-  const { recaps } = await nextRecaps(o, {}, fetch, en, 0);
+  const { recaps } = await nextRecaps(o, {}, fetch, en, { now: 0 });
   assert.equal(recaps["a/b#1"].plain, "needs another approval · bill approved");
   assert.equal(recaps["a/b#3"].plain, "needs another approval · bill approved");
+});
+
+test("nextRecaps: your teams are matched in each pull request's own org", async () => {
+  const d = detailsOf([review("bill", "APPROVED", "head", ["planning"])]);
+  const { fetch } = fetcher({ "acme/web#1": d, "other/x#2": d });
+  const { recaps } = await nextRecaps(check([listed("acme/web#1"), listed("other/x#2")]), {}, fetch, en, { now: 0, teams: ["acme/planning"] });
+  assert.equal(recaps["acme/web#1"].plain, "bill approved for your team planning");
+  assert.equal(recaps["other/x#2"].plain, "bill approved for team planning"); // a team of the same name elsewhere
+});
+
+test("nextTeams: fetched when missing or stale, kept otherwise", async () => {
+  let calls = 0;
+  const fetch = async () => { calls++; return ["acme/planning"]; };
+  const first = await nextTeams(undefined, fetch, 1000);
+  assert.deepEqual(first.cache, { at: 1000, teams: ["acme/planning"] });
+  const kept = await nextTeams(first.cache, fetch, 1000 + TEAMS_STALE - 1);
+  assert.equal(kept.cache, first.cache);
+  await nextTeams(first.cache, fetch, 1000 + TEAMS_STALE + 1);
+  assert.equal(calls, 2);
+});
+
+test("nextTeams: a failure keeps the teams known and is retried sooner; it never throws", async () => {
+  const fail = async () => { throw new Error("missing read:org"); };
+  const known = { at: 0, teams: ["acme/planning"] };
+  const t = await nextTeams(known, fail, TEAMS_STALE + 1);
+  assert.equal(t.error, "missing read:org");
+  assert.deepEqual(t.cache.teams, ["acme/planning"]);
+  const soon = await nextTeams(t.cache, async () => ["acme/api"], TEAMS_STALE + 1 + RECAP_STALE + 1);
+  assert.deepEqual(soon.cache.teams, ["acme/api"]);
+  assert.deepEqual((await nextTeams(undefined, fail, 0)).cache.teams, []);
 });
 
 test("nextRecaps: at most RECAP_FETCH fetched per check, pinned and mine first", async () => {
   const mine = Array.from({ length: RECAP_FETCH + 5 }, (_, i) => listed(`a/b#${i + 1}`));
   const { fetch, calls } = fetcher({});
   const o = { ...check(mine, [listed("a/b#100", { team: false })]), pinned: [listed("a/b#200")] };
-  await nextRecaps(o, {}, fetch, en, 0);
+  await nextRecaps(o, {}, fetch, en, { now: 0 });
   assert.equal(calls[0].length, RECAP_FETCH);
   assert.equal(calls[0][0], "a/b#200");
   assert.ok(!calls[0].includes("a/b#100"));

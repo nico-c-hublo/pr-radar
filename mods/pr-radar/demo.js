@@ -9,6 +9,8 @@ const p = (repo, number, title, author, ci, extra = {}) => ({
 
 // What demo mode starts with pinned, and what the query would say of the pinned ones.
 export const DEMO_PINS = ["acme/web#418"];
+// The teams the demo's "you" is in.
+export const DEMO_TEAMS = ["acme/platform", "acme/api"];
 const DEMO_DECISIONS = { "acme/web#418": "changes" };
 
 export const demoOverview = (pins = []) => {

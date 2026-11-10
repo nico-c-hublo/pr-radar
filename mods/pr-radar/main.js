@@ -1,11 +1,11 @@
 import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { exec, run, theme, props, shared, setShared, notify, playSound, openOverlay, closeOverlay, nextCommand } from "herdr";
-import { overview, discussions, details } from "./github.js";
-import { nextRecaps } from "./recap.js";
+import { overview, discussions, details, myTeams } from "./github.js";
+import { nextRecaps, nextTeams } from "./recap.js";
 import { readConfig } from "./config.js";
 import { strings } from "./i18n.js";
-import { demoOverview, demoDiscussions, demoDetails, DEMO_PINS } from "./demo.js";
+import { demoOverview, demoDiscussions, demoDetails, DEMO_PINS, DEMO_TEAMS } from "./demo.js";
 
 // The mod's icon, from Herdr's config folder (where the install puts this one).
 const ICON = "mods/pr-radar/icon.svg";
@@ -54,6 +54,7 @@ export default class PrRadar extends View {
     this.seenKey = `pr-radar.seen:${this.cfg.id}`;
     this.pinsKey = `pr-radar.pins:${this.cfg.id}`;
     this.recapsKey = `pr-radar.recaps:${this.cfg.id}`;
+    this.teamsKey = `pr-radar.teams:${this.cfg.id}`;
     if (this.panel) return;
     this.links = new Map(); this.slot = 0; this.busy = false;
     cx.spawn(async (cx) => {
@@ -122,10 +123,15 @@ export default class PrRadar extends View {
     });
   }
 
-  // Rebuilds the recaps after a check (recap.js `nextRecaps`, which picks what to fetch again).
+  // Rebuilds the recaps after a check (recap.js `nextRecaps`, which picks what to fetch again), with
+  // your teams (`nextTeams`, fetched again every few hours) to say "your team".
   async updateRecaps(o) {
+    const cached = shared(this.teamsKey);
+    const t = await nextTeams(cached, () => (this.cfg.demo ? DEMO_TEAMS : myTeams(this.cfg, o.me)));
+    if (t.error) console.log(`pr-radar: teams: ${t.error}`);
+    if (t.cache !== cached) setShared(this.teamsKey, t.cache);
     const fetch = (keys) => (this.cfg.demo ? demoDetails(keys) : details(this.cfg, keys));
-    const { recaps, errors } = await nextRecaps(o, shared(this.recapsKey) ?? {}, fetch, this.s);
+    const { recaps, errors } = await nextRecaps(o, shared(this.recapsKey) ?? {}, fetch, this.s, { teams: t.cache.teams });
     for (const e of errors) console.log(`pr-radar: recaps: ${e}`);
     setShared(this.recapsKey, recaps);
   }

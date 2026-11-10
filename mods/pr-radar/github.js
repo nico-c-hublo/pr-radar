@@ -140,6 +140,15 @@ export async function discussions(cfg) {
     });
 }
 
+// The viewer's teams, as "org/slug" (needs the token's read:org scope, which gh asks for).
+export async function myTeams(cfg, me) {
+  const query = `query($login: String!) { viewer { organizations(first: 50) { nodes { login
+    teams(first: 100, userLogins: [$login]) { nodes { slug } } } } } }`;
+  const res = JSON.parse(await gh(["api", "graphql", ...host(cfg), "-f", `query=${query}`, "-f", `login=${me}`]));
+  if (!res.data) throw new Error(res.errors?.[0]?.message ?? "GitHub returned no data");
+  return res.data.viewer.organizations.nodes.flatMap((o) => o.teams.nodes.map((t) => `${o.login}/${t.slug}`));
+}
+
 // What a recap needs beyond P (recap.js): who's still asked, the latest reviews and the teams they
 // count for, the review threads (outdated or not, who started them, who spoke last and when), and the last commits (to
 // tell a push since your review from a rebase or a merge of the base branch).

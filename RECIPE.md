@@ -85,11 +85,14 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   approval` before the approvals when GitHub's `reviewDecision` is `REVIEW_REQUIRED` and nobody is
   asked. The story also has `decision` and a `role` (author; reviewer: asked of you or reviewed;
   team-reviewer: asked of your team only; watcher: pinned) from how the pull request reached your
-  lists; only author or not changes the wording. "Since your review" reads the last 50 commits: with
-  the commit you reviewed still in them, any non-merge commit after it is a push (merges of the base
-  branch are nothing new); with it gone (history rewritten), a non-merge commit authored after your
-  review is a push, otherwise it's `rebased since your review` (a rebase keeps author dates; an
-  amend may have changed the code).
+  lists; only author or not changes the wording. An approval on behalf of one of your teams says
+  `your team <slug>` (`ton équipe`); the story lists them as `myTeamCovered`. Your teams come from
+  `viewer.organizations.teams(userLogins:)`, kept in shared `pr-radar.teams:<scope>` and fetched
+  again every 6 hours (15 minutes after a failure), matched in each pull request's own org. "Since
+  your review" reads the last 50 commits: with the commit you reviewed still in them, any non-merge
+  commit after it is a push (merges of the base branch are nothing new); with it gone (history
+  rewritten), a non-merge commit authored after your review is a push, otherwise it's `rebased since
+  your review` (a rebase keeps author dates; an amend may have changed the code).
 - A pinned pull request is loud: every announcement about it has the needs-you sound, and also
   its team review requests, its green CI (whatever `greenCi`), its CI when it isn't yours, its
   review decision turning approved or changes requested, new commits when it isn't yours, the last
@@ -128,7 +131,8 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     alias per pull request with `reviewRequests`, `latestOpinionatedReviews` (with `onBehalfOf`
     teams), `reviewDecision`, `latestReviews` (your last review's commit and time), `reviewThreads(first: 50)`
     (resolved, outdated, first comment's author, last comment's author and time) and `commits(last: 50)` (oid, author date, parents).
-  - `recap.js`: pure, no Herdr. `story(pr, me)` works out the facts, `plainRecap(story, strings)`
+  - `github.js` `myTeams()`: your teams as `org/slug`.
+  - `recap.js`: pure, no Herdr. `nextTeams()` decides when to fetch your teams again. `story(pr, me)` works out the facts, `plainRecap(story, strings)`
     writes the sentence from i18n's `recap` templates, and `nextRecaps(check, stored, fetchDetails,
     strings)` picks what to fetch again and rebuilds every recap. It never throws: a failed fetch
     keeps the known details, an answer it can't read keeps that recap's last sentence. Tested with

@@ -61,7 +61,7 @@ where it stands, from your point of view, most pressing first:
   `nothing new since your review` (merging the base branch in is nothing new);
 - `changes requested by maya`, `CI red`;
 - `waiting on team beta and leo`, `bill approved for team alpha` (the team a review counted for,
-  through code owners), `needs another approval` (GitHub still wants a review and nobody's asked);
+  through code owners; `your team planning` when it's one of yours), `needs another approval` (GitHub still wants a review and nobody's asked);
 - `ready to merge` when GitHub says nothing blocks it;
 - `no reviewers yet` (`draft · no reviewers yet` on a draft) when nobody's been asked and nobody
   has reviewed.
@@ -142,7 +142,8 @@ PR Radar runs `gh` on your machine, with your GitHub login:
 - one GraphQL query per check, for your pull requests, review requests, watched branches and pinned
   pull requests;
 - one call to the notifications API, for discussions;
-- with recaps on, one more GraphQL query for the review requests, reviews and review threads of
+- with recaps on, one query for your teams every 6 hours (it needs the `read:org` scope `gh` asks
+  for; without it, no team is called "yours"), and one more GraphQL query for the review requests, reviews and review threads of
   the pull requests updated since the last one (15 at most per check; each again every 15 minutes).
 
 It also runs `open` (macOS) or `xdg-open` (Linux) to open links. It keeps a small state in Herdr's

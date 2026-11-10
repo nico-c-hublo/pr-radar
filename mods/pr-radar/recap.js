@@ -56,13 +56,16 @@ const DECISION = { APPROVED: "approved", CHANGES_REQUESTED: "changes", REVIEW_RE
 //   team-reviewer  asked of one of your teams only, and you haven't reviewed it;
 //   watcher        none of these (a pull request you pinned).
 // Only author or not changes the plain wording today; the rest is told as is (a fact of the story).
-export function story(pr, me, { asked = null } = {}) {
+// teams: the viewer's teams in this pull request's org (slugs), to tell "your team" from another.
+export function story(pr, me, { asked = null, teams = [] } = {}) {
   const who = (login) => (login === me ? "you" : login);
   const author = pr.author ?? "";
 
   const opinions = nodes(pr.latestOpinionatedReviews).filter((r) => !isBot(r.author));
   const approvals = opinions.filter((r) => r.state === "APPROVED")
     .map((r) => ({ by: who(r.author.login), teams: nodes(r.onBehalfOf).map((t) => t.slug) }));
+  // Your teams someone already approved for: their review request is answered.
+  const myTeamCovered = [...new Set(approvals.flatMap((a) => a.teams).filter((t) => teams.includes(t)))];
   const changesRequested = opinions.filter((r) => r.state === "CHANGES_REQUESTED").map((r) => ({ by: who(r.author.login) }));
 
   const requested = nodes(pr.reviewRequests).map((r) => r.requestedReviewer).filter(Boolean);
@@ -102,7 +105,7 @@ export function story(pr, me, { asked = null } = {}) {
   return {
     role, author: who(author), draft: Boolean(pr.draft), ci: pr.ci ?? null, merge: merge(pr), base: pr.base ?? "",
     decision: DECISION[pr.reviewDecision] ?? null,
-    approvals, changesRequested, waitingOn, threads, sinceMyReview,
+    approvals, myTeamCovered, changesRequested, waitingOn, threads, sinceMyReview,
     detailed: Boolean(pr.reviewRequests || pr.latestOpinionatedReviews || pr.latestReviews || pr.reviewThreads),
   };
 }
@@ -132,7 +135,7 @@ export function plainRecap(st, s, { all = false } = {}) {
   if (users.length || teams.length) clauses.push(r.waitingOn(teams, users));
   // Approved by some, yet GitHub still wants a review and nobody else is asked: say it's not done.
   else if (st.decision === "review-required" && st.approvals.length) clauses.push(r.needsApproval);
-  if (st.approvals.length) clauses.push(r.approved(st.approvals));
+  if (st.approvals.length) clauses.push(r.approved(st.approvals, st.myTeamCovered));
   if (st.role !== "author" && st.sinceMyReview === "nothing" && !st.threads.answered) clauses.push(r.nothingNew);
   if (!clauses.length && st.merge === "unstable") clauses.push(r.unstable);
   // A draft says so only here, where it's why nobody's asked yet (the row's tag says it otherwise).
@@ -150,7 +153,8 @@ export const RECAP_MAX = 30, RECAP_FETCH = 15, RECAP_STALE = 15 * 60000;
 // A pinned pull request's recap says everything (plainRecap's `all`): it's the one you follow.
 // -> { recaps, errors }. Never throws: recaps are extra, and a failure mustn't undo the check. A
 // failed fetch keeps the details known; a recap that can't be built keeps its last sentence.
-export async function nextRecaps(o, prev, fetchDetails, s, now = Date.now()) {
+// teams: the viewer's teams, as "org/slug" (nextTeams).
+export async function nextRecaps(o, prev, fetchDetails, s, { now = Date.now(), teams = [] } = {}) {
   const errors = [], byKey = new Map(), pinned = new Set((o?.pinned ?? []).map((p) => p.key));
   const asked = new Map((o?.reviews ?? []).map((r) => [r.key, r.team ? "team" : "me"]));
   const add = (p) => { if (p?.key && p.title && !byKey.has(p.key)) byKey.set(p.key, p); };
@@ -170,11 +174,33 @@ export async function nextRecaps(o, prev, fetchDetails, s, now = Date.now()) {
     const c = got[k] ? { updated: byKey.get(k).updated, at: now, details: got[k] } : prev?.[k];
     if (!c) continue;
     try {
-      recaps[k] = { ...c, plain: plainRecap(story({ ...byKey.get(k), ...c.details }, o.me, { asked: asked.get(k) }), s, { all: pinned.has(k) }) };
+      recaps[k] = { ...c, plain: plainRecap(story({ ...byKey.get(k), ...c.details }, o.me, { asked: asked.get(k), teams: teamsIn(teams, k) }), s, { all: pinned.has(k) }) };
     } catch (e) {
       errors.push(`${k}: ${e?.message ?? e}`);
       if (prev?.[k]) recaps[k] = prev[k];
     }
   }
   return { recaps, errors };
+}
+
+// The viewer's teams in a pull request's org: "owner/name#1" with ["owner/a", "other/b"] -> ["a"].
+const teamsIn = (teams, key) => {
+  const org = key.split("/")[0].toLowerCase();
+  return teams.filter((t) => t.split("/")[0].toLowerCase() === org).map((t) => t.split("/")[1]);
+};
+
+// The viewer's teams change rarely and cost a query, so they're fetched again every TEAMS_STALE, or
+// RECAP_STALE after a failure (the token may lack read:org: then no team is "yours").
+export const TEAMS_STALE = 6 * 3600000;
+
+// cached: { at, teams, failedAt? } or nothing; fetchTeams() -> ["org/slug"].
+// -> { cache, error }: the cache to keep (unchanged when not due). Never throws.
+export async function nextTeams(cached, fetchTeams, now = Date.now()) {
+  const due = !cached || (cached.failedAt ? now - cached.failedAt > RECAP_STALE : now - cached.at > TEAMS_STALE);
+  if (!due) return { cache: cached, error: null };
+  try {
+    return { cache: { at: now, teams: (await fetchTeams()) ?? [] }, error: null };
+  } catch (e) {
+    return { cache: { at: cached?.at ?? 0, teams: cached?.teams ?? [], failedAt: now }, error: String(e?.message ?? e) };
+  }
 }

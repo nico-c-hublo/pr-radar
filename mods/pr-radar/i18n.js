@@ -52,9 +52,10 @@ const en = {
     behind: (base) => `behind ${base}`,
     ready: "ready to merge",
     waitingOn: (teams, users) => `waiting on ${list([...teams.map((t) => `team ${t}`), ...users], "and")}`,
-    approved: (a) => (a.length === 1
-      ? `${a[0].by} approved${a[0].teams.length ? ` for team ${list(a[0].teams, "and")}` : ""}`
-      : `approved by ${list(a.map((x) => (x.teams.length ? `${x.by} (${x.teams.join(", ")})` : x.by)), "and")}`),
+    // mine: the viewer's teams among them ("your team").
+    approved: (a, mine = []) => (a.length === 1
+      ? `${a[0].by} approved${a[0].teams.length ? ` for ${list(a[0].teams.map((t) => (mine.includes(t) ? `your team ${t}` : `team ${t}`)), "and")}` : ""}`
+      : `approved by ${list(a.map((x) => (x.teams.length ? `${x.by} (${x.teams.map((t) => (mine.includes(t) ? `your team ${t}` : t)).join(", ")})` : x.by)), "and")}`),
     nothingNew: "nothing new since your review",
     unstable: "mergeable · some optional checks fail",
     noReviewers: "no reviewers yet",
@@ -105,9 +106,9 @@ const fr = {
     behind: (base) => `en retard sur ${base}`,
     ready: "prête à merger",
     waitingOn: (teams, users) => `en attente de ${list([...teams.map((t) => `l'équipe ${t}`), ...users.map(toi)], "et", autres)}`,
-    approved: (a) => (a.length === 1
-      ? `${a[0].by === "you" ? "tu as approuvé" : `${a[0].by} a approuvé`}${a[0].teams.length ? ` pour l'équipe ${list(a[0].teams, "et", autres)}` : ""}`
-      : `approuvée par ${list(a.map((x) => (x.teams.length ? `${toi(x.by)} (${x.teams.join(", ")})` : toi(x.by))), "et", autres)}`),
+    approved: (a, mine = []) => (a.length === 1
+      ? `${a[0].by === "you" ? "tu as approuvé" : `${a[0].by} a approuvé`}${a[0].teams.length ? ` pour ${list(a[0].teams.map((t) => (mine.includes(t) ? `ton équipe ${t}` : `l'équipe ${t}`)), "et", autres)}` : ""}`
+      : `approuvée par ${list(a.map((x) => (x.teams.length ? `${toi(x.by)} (${x.teams.map((t) => (mine.includes(t) ? `ton équipe ${t}` : t)).join(", ")})` : toi(x.by))), "et", autres)}`),
     nothingNew: "rien de nouveau depuis ta review",
     unstable: "mergeable · des checks optionnels échouent",
     noReviewers: "pas encore de reviewers",
