@@ -48,8 +48,8 @@ const user = (login) => ({ login, __typename: "User" });
 const team = (slug) => ({ __typename: "Team", slug });
 const review = (login, state, oid, teams = []) => ({ state, submittedAt: "2026-01-02T00:00:00Z", author: user(login), commit: { oid }, onBehalfOf: { nodes: teams.map((slug) => ({ slug })) } });
 const commit = (oid, authoredDate = "2026-01-01T00:00:00Z") => ({ commit: { oid, authoredDate, parents: { totalCount: 1 } } });
-const thread = (starter, last) => ({ isResolved: false, isOutdated: false, first: { nodes: [{ author: user(starter) }] },
-  last: { nodes: [{ createdAt: "2026-01-03T00:00:00Z", author: user(last) }] } });
+const thread = (starter, last, bodyText = "") => ({ isResolved: false, isOutdated: false, first: { nodes: [{ author: user(starter) }] },
+  last: { nodes: [{ createdAt: "2026-01-03T00:00:00Z", bodyText, author: user(last) }] } });
 const detail = ({ asked = [], opinions = [], latest = opinions, threads = [], commits = [] }) => ({
   commits: { nodes: commits },
   reviewRequests: { nodes: asked.map((requestedReviewer) => ({ requestedReviewer })) },
@@ -57,11 +57,14 @@ const detail = ({ asked = [], opinions = [], latest = opinions, threads = [], co
   reviewThreads: { totalCount: threads.length, nodes: threads },
 });
 const DEMO_DETAILS = {
-  "acme/web#418": detail({ opinions: [review("maya", "CHANGES_REQUESTED", "demo418")], threads: [thread("maya", "maya"), thread("maya", "maya")] }),
+  "acme/web#418": detail({ opinions: [review("maya", "CHANGES_REQUESTED", "demo418")], threads: [
+    thread("maya", "maya", "The debounce should cancel on unmount, or the last request still lands."),
+    thread("maya", "maya", "Can we test the 300 ms with fake timers instead of waiting?")] }),
   "acme/api#1301": detail({ asked: [team("backend")], opinions: [review("leo", "APPROVED", "demo1301", ["platform"])] }),
   "acme/web#405": detail({}),
   "acme/web#412": detail({ latest: [review("you", "COMMENTED", "old412")], commits: [commit("old412"), commit("demo412", "2026-01-03T00:00:00Z")],
-    threads: [thread("you", "maya"), thread("you", "maya")] }),
+    threads: [thread("you", "maya", "Done, and I kept the cart in session storage as you suggested."),
+      thread("you", "maya", "I'd rather keep the retry here: the API can't tell an expired session apart.")] }),
   "acme/api#1290": detail({ opinions: [review("sam", "APPROVED", "demo1290", ["api"])] }),
   "acme/infra#88": detail({ opinions: [review("leo", "APPROVED", "demo88", ["infra"])] }),
 };

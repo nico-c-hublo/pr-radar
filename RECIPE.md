@@ -34,7 +34,10 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   an ellipsis, its full text in a tooltip. Lowercase, clauses joined by ` · `, three at most:
   `2 threads wait on you · conflicts with main · changes requested by maya`. A pinned row's recap
   has every clause and wraps (`whitespace_normal`, no tooltip): its row is at least 44 px, with
-  6 px above and below, and grows with it.
+  6 px above and below, and grows with it. The excerpts (the last comment of each thread waiting on you or
+  answered by a reply since your review, newest first, three at most, whitespace collapsed, cut at
+  a word to 120 characters) are under a pinned row's recap, one `↳ maya: "…"` line each, 11 px in
+  `muted`, cut off; in other rows they follow the recap in its tooltip, a line each.
 - **Pins**: each pull request row ends with a 20 px slot for a `📌` (12 px). Unpinned, it shows only
   while the row is hovered, at 35% opacity and full when the pin itself is hovered; pinned, it's
   always there at full opacity (60% on hover). A click pins or unpins without opening the row. Pinned pull requests leave their sections for a
@@ -130,7 +133,7 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     `updatedAt mergeable mergeStateStatus baseRefName`. `details()`: one `repository { pullRequest }`
     alias per pull request with `reviewRequests`, `latestOpinionatedReviews` (with `onBehalfOf`
     teams), `reviewDecision`, `latestReviews` (your last review's commit and time), `reviewThreads(first: 50)`
-    (resolved, outdated, first comment's author, last comment's author and time) and `commits(last: 50)` (oid, author date, parents).
+    (resolved, outdated, first comment's author, last comment's author, time and text, the text cut to 280 characters as it arrives) and `commits(last: 50)` (oid, author date, parents).
   - `github.js` `myTeams()`: your teams as `org/slug`.
   - `recap.js`: pure, no Herdr. `nextTeams()` decides when to fetch your teams again. `story(pr, me)` works out the facts, `plainRecap(story, strings)`
     writes the sentence from i18n's `recap` templates, and `nextRecaps(check, stored, fetchDetails,

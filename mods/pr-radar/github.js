@@ -160,7 +160,17 @@ const DETAIL_FIELDS = `
   commits(last: 50) { nodes { commit { oid authoredDate parents { totalCount } } } }
   reviewThreads(first: 50) { totalCount nodes { isResolved isOutdated
     first: comments(first: 1) { nodes { author { login __typename } } }
-    last: comments(last: 1) { nodes { createdAt author { login __typename } } } } }`;
+    last: comments(last: 1) { nodes { createdAt bodyText author { login __typename } } } } }`;
+
+// A thread's last comment is kept to its first EXCERPT_MAX characters: enough for a recap's excerpt,
+// and the details are stored (shared state) for every listed pull request.
+const EXCERPT_MAX = 280;
+const trimBodies = (pr) => {
+  for (const t of pr?.reviewThreads?.nodes ?? []) {
+    for (const c of t?.last?.nodes ?? []) if (typeof c?.bodyText === "string") c.bodyText = c.bodyText.slice(0, EXCERPT_MAX);
+  }
+  return pr;
+};
 
 // keys ("owner/name#123") -> { [key]: details | null }: one alias per pull request. null when it
 // couldn't be read this time (gone, no answer, or not a pull request's key): the caller keeps what
@@ -174,5 +184,5 @@ export async function details(cfg, keys) {
   if (!fields) return Object.fromEntries(keys.map((k) => [k, null]));
   const res = JSON.parse(await gh(["api", "graphql", ...host(cfg), "-f", `query=query { ${fields} }`], { partial: true }));
   if (!res.data) throw new Error(res.errors?.[0]?.message ?? "GitHub returned no data");
-  return Object.fromEntries(keys.map((k, i) => [k, res.data[`d${i}`]?.pullRequest ?? null]));
+  return Object.fromEntries(keys.map((k, i) => [k, trimBodies(res.data[`d${i}`]?.pullRequest) ?? null]));
 }

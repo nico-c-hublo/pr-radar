@@ -66,8 +66,11 @@ where it stands, from your point of view, most pressing first:
 - `no reviewers yet` (`draft · no reviewers yet` on a draft) when nobody's been asked and nobody
   has reviewed.
 
-At most three of these, joined by `·`. Hover a cut-off recap to read all of it. A pinned pull
-request's recap says all of them, on as many lines as it takes. Pinned pull
+At most three of these, joined by `·`. Hover a recap to read all of it, with the last comment of
+each thread that asks something of you (waiting on you, or answered since your review):
+`maya: "Can we test the 300 ms with fake timers instead of waiting?"`. A pinned pull request's
+recap says all of them, on as many lines as it takes, with those comments under it (three at most,
+newest first, one line each). Pinned pull
 requests, yours and the reviews asked of you and your teams get one (30 at most). Recaps are built
 from GitHub's answer alone: nothing is sent anywhere else.
 

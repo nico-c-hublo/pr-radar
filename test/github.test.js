@@ -46,3 +46,11 @@ test("myTeams: an error (a token without read:org) is thrown, for the caller to 
   herdr.answer({ code: 1, stdout: "", stderr: "Your token has not been granted the required scopes" });
   await assert.rejects(myTeams(cfg, "me"), /required scopes/);
 });
+
+test("details: a thread's last comment is kept to 280 characters", async () => {
+  const body = "x".repeat(1000);
+  herdr.answer({ stdout: JSON.stringify({ data: { d0: { pullRequest: { reviewThreads: { nodes: [{ last: { nodes: [{ bodyText: body }] } }] } } } } }) });
+  const got = await details(cfg, ["acme/web#1"]);
+  assert.equal(got["acme/web#1"].reviewThreads.nodes[0].last.nodes[0].bodyText.length, 280);
+  assert.match(query(), /bodyText/);
+});

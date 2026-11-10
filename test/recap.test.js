@@ -12,9 +12,9 @@ const review = (login, state, oid = "head", teams = []) => ({ submittedAt: REVIE
   author: login.endsWith("[bot]") ? bot(login) : user(login), state, commit: { oid },
   onBehalfOf: { nodes: teams.map((slug) => ({ slug })) },
 });
-const thread = (starter, last, isResolved = false, { outdated = false, at } = {}) => ({
+const thread = (starter, last, isResolved = false, { outdated = false, at, text } = {}) => ({
   isResolved, isOutdated: outdated, first: { nodes: [{ author: user(starter) }] },
-  last: { nodes: [{ createdAt: at, author: last.endsWith("[bot]") ? bot(last) : user(last) }] },
+  last: { nodes: [{ createdAt: at, bodyText: text, author: last.endsWith("[bot]") ? bot(last) : user(last) }] },
 });
 const pr = ({ author = "ana", requested = [], opinions = [], latest = opinions, threads = [], total, commits = [], ...rest } = {}) => ({
   author, draft: false, ci: "success", oid: "head", mergeable: "MERGEABLE", mergeState: "BLOCKED", base: "main",
@@ -170,6 +170,53 @@ test("your team: another team's approval isn't yours; several approvals mark you
   assert.deepEqual(story(pr({ opinions: [review("bill", "APPROVED", "head", ["alpha"])] }), "me", { teams: ["planning"] }).myTeamCovered, []);
   const p = pr({ opinions: [review("bill", "APPROVED", "head", ["planning", "alpha"]), review("maya", "APPROVED")] });
   assert.equal(plainRecap(story(p, "me", { teams: ["planning"] }), en), "approved by bill (your team planning, alpha) and maya");
+});
+
+// Excerpts: what was said in the threads that ask something of you.
+const T1 = "2026-03-03T01:00:00Z", T2 = "2026-03-03T02:00:00Z", T3 = "2026-03-03T03:00:00Z", T4 = "2026-03-03T04:00:00Z";
+
+test("excerpts: on your pull request, the last word of the threads waiting on you", () => {
+  const p = pr({ author: "me", threads: [
+    thread("leo", "leo", false, { at: T1, text: "Why not a map here?" }),
+    thread("leo", "me", false, { at: T2, text: "my own answer" }), // you spoke last
+    thread("leo", "leo", false, { at: T3, text: "outdated", outdated: true }), // the reviewer's turn
+    thread("leo", "ci[bot]", false, { at: T4, text: "bot noise" }),
+    thread("maya", "maya", true, { at: T4, text: "resolved" }),
+  ] });
+  assert.deepEqual(story(p, "me").excerpts, [{ by: "leo", text: "Why not a map here?" }]);
+});
+
+test("excerpts: on someone else's, the author's replies since your review, newest first, three at most", () => {
+  const p = pr({ latest: [review("me", "COMMENTED", "old")], commits: [commit("old"), commit("head", AFTER)], threads: [
+    thread("me", "ana", false, { at: T1, text: "one" }),
+    thread("me", "ana", false, { at: T4, text: "four" }),
+    thread("me", "ana", false, { at: T2, text: "two" }),
+    thread("me", "ana", false, { at: T3, text: "three" }),
+    thread("me", "ana", false, { at: BEFORE, text: "seen: before your review" }),
+    thread("me", "me", false, { at: T4, text: "answered by code only", outdated: true }),
+  ] });
+  const st = story(p, "me");
+  assert.equal(st.threads.answered, 5);
+  assert.deepEqual(st.excerpts.map((x) => x.text), ["four", "three", "two"]);
+  assert.deepEqual(st.excerpts.map((x) => x.by), ["ana", "ana", "ana"]);
+});
+
+test("excerpts: one short line, cut at a word", () => {
+  const long = `Kept the hook as is:\n\n    splitting it ${"means touching every caller ".repeat(6)}so see #23540.`;
+  const [x] = story(pr({ author: "me", threads: [thread("leo", "leo", false, { text: long })] }), "me").excerpts;
+  assert.ok(!x.text.includes("\n") && !x.text.includes("  "));
+  assert.ok(x.text.length <= 121 && x.text.endsWith("…"));
+  assert.ok(x.text.startsWith("Kept the hook as is: splitting it means"));
+  assert.match(x.text, /\w…$/); // no half word, no trailing comma
+});
+
+test("excerpts: a thread without text gives none", () => {
+  assert.deepEqual(story(pr({ author: "me", threads: [thread("leo", "leo")] }), "me").excerpts, []);
+});
+
+test("excerpts: said in each language", () => {
+  assert.equal(en.recap.said("leo", "Why not a map here?"), 'leo: "Why not a map here?"');
+  assert.equal(fr.recap.said("leo", "Pourquoi pas une map ?"), "leo : « Pourquoi pas une map ? »");
 });
 
 test("on your own pull request, threads where someone else spoke last wait on you", () => {
@@ -372,6 +419,14 @@ test("nextTeams: a failure keeps the teams known and is retried sooner; it never
   const soon = await nextTeams(t.cache, async () => ["acme/api"], TEAMS_STALE + 1 + RECAP_STALE + 1);
   assert.deepEqual(soon.cache.teams, ["acme/api"]);
   assert.deepEqual((await nextTeams(undefined, fail, 0)).cache.teams, []);
+});
+
+test("nextRecaps: keeps each recap's excerpts", async () => {
+  const d = { ...detailsOf(), reviewThreads: { totalCount: 1, nodes: [thread("leo", "leo", false, { text: "Why not a map?" })] } };
+  const { fetch } = fetcher({ "a/b#1": d });
+  const { recaps } = await nextRecaps(check([listed("a/b#1", { author: "me" })]), {}, fetch, en, { now: 0 });
+  assert.equal(recaps["a/b#1"].plain, "1 thread waits on you");
+  assert.deepEqual(recaps["a/b#1"].excerpts, [{ by: "leo", text: "Why not a map?" }]);
 });
 
 test("nextRecaps: at most RECAP_FETCH fetched per check, pinned and mine first", async () => {

@@ -264,6 +264,8 @@ export default class PrRadar extends View {
     const pins = this.pins(), pinned = new Set(pins);
     const recaps = this.cfg.recaps !== "off" ? shared(this.recapsKey) ?? {} : {};
     const recapOf = (key) => (key && recaps[key]?.plain) || null;
+    // What was said in the threads that ask something of you, one line each: `↳ ana: "…"`.
+    const saidOf = (key) => ((key && recaps[key]?.excerpts) || []).map((x) => s.recap.said(x.by, x.text));
     let n = 0;
     // The 📌 at the end of a pull request's row pins or unpins it; the rest of the row opens it.
     // A pinned row always shows it; an unpinned one only while hovered, faint until the pin itself is.
@@ -280,8 +282,9 @@ export default class PrRadar extends View {
       .text_size(10).text_color(t.dim).child(s.draft);
     // A pull request with a recap gets it on a second line, under its title: cut off to fit, with
     // the rest in a tooltip, except a pinned one's, which says everything and wraps (its row grows).
+    // The thread excerpts go in the tooltip, or under a pinned one's recap.
     const row = (icon, color, where, title, extra, url, key = null, draft = false) => {
-      const id = `prr-row-${n++}`, recap = recapOf(key), wrap = Boolean(recap) && pinned.has(key);
+      const id = `prr-row-${n++}`, recap = recapOf(key), wrap = Boolean(recap) && pinned.has(key), said = recap ? saidOf(key) : [];
       return h_flex().id(id).when(!wrap, (e) => e.h(recap ? 44 : 30)).when(wrap, (e) => e.min_h(44).py(6))
       .flex_none().px(10).gap(10).items_center()
       .rounded(5).cursor_pointer().hover((h) => h.bg(t.hover)).on_click(() => { openUrl(url); close(); })
@@ -296,8 +299,9 @@ export default class PrRadar extends View {
           .when(draft, (e) => e.child(draftTag()))
           .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(draft ? t.muted : t.foreground).child(title)))
         .when(Boolean(recap) && !wrap, (e) => e.child(div().id(`${id}-recap`).truncate().text_size(11).text_color(t.dim)
-          .tooltip(recap).child(recap)))
-        .when(wrap, (e) => e.child(div().whitespace_normal().text_size(11).text_color(t.dim).child(recap))))
+          .tooltip([recap, ...said].join("\n")).child(recap)))
+        .when(wrap, (e) => e.child(div().whitespace_normal().text_size(11).text_color(t.dim).child(recap))
+          .children(said.map((line) => div().truncate().text_size(11).text_color(t.muted).child(`↳ ${line}`)))))
       .child(div().flex_none().text_size(11).text_color(t.dim).child(extra ?? ""))
       .child(pin(key, id));
     };

@@ -46,6 +46,17 @@ function since(pr, mine) {
   return commits.some((c) => own(c) && Date.parse(c.authoredDate) > after) ? "pushed" : "rebased";
 }
 
+// A comment as one short line: whitespace (newlines, code blocks' indentation) collapsed, cut at a
+// word with an ellipsis.
+const EXCERPT_CHARS = 120, MAX_EXCERPTS = 3;
+function excerpt(text) {
+  const line = text.replace(/\s+/g, " ").trim();
+  if (line.length <= EXCERPT_CHARS) return line;
+  const cut = line.slice(0, EXCERPT_CHARS);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > EXCERPT_CHARS / 2 ? cut.slice(0, space) : cut).replace(/[\s.,;:!?-]+$/, "")}…`;
+}
+
 // reviewDecision -> the story's decision (null: no review rule on the branch, or not known).
 const DECISION = { APPROVED: "approved", CHANGES_REQUESTED: "changes", REVIEW_REQUIRED: "review-required" };
 
@@ -85,27 +96,34 @@ export function story(pr, me, { asked = null, teams = [] } = {}) {
   const open = nodes(pr.reviewThreads).filter((t) => !t.isResolved).map((t) => ({
     starter: nodes(t.first)[0]?.author, last: nodes(t.last)[0]?.author,
     lastAt: Date.parse(nodes(t.last)[0]?.createdAt), outdated: Boolean(t.isOutdated),
+    lastText: nodes(t.last)[0]?.bodyText ?? "",
   }));
   const spoke = (a) => a && !isBot(a);
   // A reply you haven't reviewed since (with no time known, it counts).
   const unseen = (t) => !(t.lastAt <= reviewedAt);
   const codeChanged = sinceMyReview === "pushed" || sinceMyReview === "rebased";
+  // On your pull request: someone else spoke last, on code you haven't changed since (an outdated
+  // one is theirs to look at again).
+  const waiting = role === "author" ? open.filter((t) => spoke(t.last) && t.last.login !== me && !t.outdated) : [];
+  // On someone else's, threads you started that were answered since your last review: the author
+  // replied, or changed the code under them (outdated, with a push or rebase since your review).
+  const replied = role !== "author" ? open.filter((t) => t.starter?.login === me && t.last?.login === author && unseen(t)) : [];
+  const changed = role !== "author" ? open.filter((t) => t.starter?.login === me && t.outdated && t.last?.login === me && codeChanged) : [];
+  // What was said in the threads that ask something of you: their last comment, newest first.
+  const excerpts = [...waiting, ...replied].filter((t) => t.lastText.trim())
+    .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, MAX_EXCERPTS)
+    .map((t) => ({ by: who(t.last.login), text: excerpt(t.lastText) }));
   const threads = {
     open: open.length,
-    // On your pull request: someone else spoke last, on code you haven't changed since (an outdated
-    // one is theirs to look at again).
-    waitingOnMe: role === "author" ? open.filter((t) => spoke(t.last) && t.last.login !== me && !t.outdated).length : 0,
-    // On someone else's, threads you started that were answered since your last review: the author
-    // replied, or changed the code under them (outdated, with a push or rebase since your review).
-    answered: role !== "author" ? open.filter((t) => t.starter?.login === me
-      && ((t.last?.login === author && unseen(t)) || (t.outdated && t.last?.login === me && codeChanged))).length : 0,
+    waitingOnMe: waiting.length,
+    answered: new Set([...replied, ...changed]).size,
     capped: (pr.reviewThreads?.totalCount ?? 0) > nodes(pr.reviewThreads).length,
   };
 
   return {
     role, author: who(author), draft: Boolean(pr.draft), ci: pr.ci ?? null, merge: merge(pr), base: pr.base ?? "",
     decision: DECISION[pr.reviewDecision] ?? null,
-    approvals, myTeamCovered, changesRequested, waitingOn, threads, sinceMyReview,
+    approvals, myTeamCovered, changesRequested, waitingOn, threads, excerpts, sinceMyReview,
     detailed: Boolean(pr.reviewRequests || pr.latestOpinionatedReviews || pr.latestReviews || pr.reviewThreads),
   };
 }
@@ -149,7 +167,8 @@ export function plainRecap(st, s, { all = false } = {}) {
 export const RECAP_MAX = 30, RECAP_FETCH = 15, RECAP_STALE = 15 * 60000;
 
 // o: a check's answer (github.js overview); prev: the recaps stored after the last check
-// ({ [key]: { updated, at, details, plain } }); fetchDetails(keys) -> { [key]: details | null }.
+// ({ [key]: { updated, at, details, plain, excerpts } }); fetchDetails(keys) -> { [key]: details | null }.
+// excerpts: what was said in the threads that ask something of you (story's `excerpts`).
 // A pinned pull request's recap says everything (plainRecap's `all`): it's the one you follow.
 // -> { recaps, errors }. Never throws: recaps are extra, and a failure mustn't undo the check. A
 // failed fetch keeps the details known; a recap that can't be built keeps its last sentence.
@@ -174,7 +193,8 @@ export async function nextRecaps(o, prev, fetchDetails, s, { now = Date.now(), t
     const c = got[k] ? { updated: byKey.get(k).updated, at: now, details: got[k] } : prev?.[k];
     if (!c) continue;
     try {
-      recaps[k] = { ...c, plain: plainRecap(story({ ...byKey.get(k), ...c.details }, o.me, { asked: asked.get(k), teams: teamsIn(teams, k) }), s, { all: pinned.has(k) }) };
+      const st = story({ ...byKey.get(k), ...c.details }, o.me, { asked: asked.get(k), teams: teamsIn(teams, k) });
+      recaps[k] = { ...c, plain: plainRecap(st, s, { all: pinned.has(k) }), excerpts: st.excerpts };
     } catch (e) {
       errors.push(`${k}: ${e?.message ?? e}`);
       if (prev?.[k]) recaps[k] = prev[k];

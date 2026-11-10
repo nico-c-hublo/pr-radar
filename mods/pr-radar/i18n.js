@@ -60,6 +60,7 @@ const en = {
     unstable: "mergeable · some optional checks fail",
     noReviewers: "no reviewers yet",
     needsApproval: "needs another approval",
+    said: (by, text) => `${by}: "${text}"`,
     draftNoReviewers: "draft · no reviewers yet",
   },
 };
@@ -113,6 +114,7 @@ const fr = {
     unstable: "mergeable · des checks optionnels échouent",
     noReviewers: "pas encore de reviewers",
     needsApproval: "il manque une approbation",
+    said: (by, text) => `${by} : « ${text} »`,
     draftNoReviewers: "draft · pas encore de reviewers",
   },
 };
