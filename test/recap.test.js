@@ -118,7 +118,14 @@ test("mergeability: unknown says nothing", () => {
 
 test("a draft is never 'ready to merge'", () => {
   const p = pr({ author: "me", draft: true, mergeState: "CLEAN" });
-  assert.equal(recap(p), "no reviewers yet");
+  assert.equal(recap(p), "draft · no reviewers yet");
+});
+
+test("a draft says so only when it's why nobody's asked yet", () => {
+  assert.equal(recap(pr({ author: "me", draft: true })), "draft · no reviewers yet");
+  assert.equal(recap(pr({ author: "me", draft: true }), "me", fr), "draft · pas encore de reviewers");
+  assert.equal(recap(pr({ author: "me", draft: true, requested: ["leo"] })), "waiting on leo");
+  assert.equal(recap(pr({ author: "me" })), "no reviewers yet");
 });
 
 test("long lists are cut at three names", () => {

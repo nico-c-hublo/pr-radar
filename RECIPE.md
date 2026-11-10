@@ -75,7 +75,8 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   answered threads you started, pushed since your last review, changes requested, CI red, behind
   the base branch, the people and teams still asked (not you), approvals with the teams they
   counted for, nothing new since your review. `ready to merge` alone when GitHub says `CLEAN` and
-  nothing above applies. Mergeability `UNKNOWN` (computed lazily after a push) says nothing. Lists
+  nothing above applies. `no reviewers yet` when nothing at all applies, `draft · no reviewers yet`
+  on a draft (the only place a recap says draft: the row's tag says it). Mergeability `UNKNOWN` (computed lazily after a push) says nothing. Lists
   stop at three names and "2 more". Bots are left out; you are "you".
 - A pinned pull request is loud: every announcement about it has the needs-you sound, and also
   its team review requests, its green CI (whatever `greenCi`), its CI when it isn't yours, its

@@ -59,7 +59,9 @@ where it stands, from your point of view, most pressing first:
 - `changes requested by maya`, `CI red`;
 - `waiting on team beta and leo`, `bill approved for team alpha` (the team a review counted for,
   through code owners);
-- `ready to merge` when GitHub says nothing blocks it.
+- `ready to merge` when GitHub says nothing blocks it;
+- `no reviewers yet` (`draft · no reviewers yet` on a draft) when nobody's been asked and nobody
+  has reviewed.
 
 At most three of these, joined by `·`. Hover a cut-off recap to read all of it. Pinned pull
 requests, yours and the reviews asked of you and your teams get one (30 at most). Recaps are built

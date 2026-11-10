@@ -88,7 +88,8 @@ export function plainRecap(st, s) {
   if (st.approvals.length) clauses.push(r.approved(st.approvals));
   if (st.role === "reviewer" && st.pushedSinceMyReview === false && !st.threads.answered) clauses.push(r.nothingNew);
   if (!clauses.length && st.merge === "unstable") clauses.push(r.unstable);
-  if (!clauses.length && !st.approvals.length && !st.changesRequested.length) clauses.push(r.noReviewers);
+  // A draft says so only here, where it's why nobody's asked yet (the row's tag says it otherwise).
+  if (!clauses.length && !st.approvals.length && !st.changesRequested.length) clauses.push(st.draft ? r.draftNoReviewers : r.noReviewers);
   return clauses.slice(0, MAX_CLAUSES).join(" · ");
 }
 

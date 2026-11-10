@@ -57,6 +57,7 @@ const en = {
     nothingNew: "nothing new since your review",
     unstable: "mergeable · some optional checks fail",
     noReviewers: "no reviewers yet",
+    draftNoReviewers: "draft · no reviewers yet",
   },
 };
 
@@ -107,6 +108,7 @@ const fr = {
     nothingNew: "rien de nouveau depuis ta review",
     unstable: "mergeable · des checks optionnels échouent",
     noReviewers: "pas encore de reviewers",
+    draftNoReviewers: "draft · pas encore de reviewers",
   },
 };
 
