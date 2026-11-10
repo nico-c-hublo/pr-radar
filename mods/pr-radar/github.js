@@ -40,13 +40,15 @@ export const inScope = (cfg, fullName) => {
 // statusCheckRollup.state -> "success" | "failed" | "pending" | null (no checks).
 const CI = { SUCCESS: "success", FAILURE: "failed", ERROR: "failed", PENDING: "pending", EXPECTED: "pending" };
 
-const FRAGMENT = `fragment P on PullRequest { number title url isDraft author { login } repository { nameWithOwner }
+const FRAGMENT = `fragment P on PullRequest { number title url isDraft updatedAt mergeable mergeStateStatus baseRefName
+  author { login } repository { nameWithOwner }
   commits(last: 1) { nodes { commit { oid statusCheckRollup { state } } } } }`;
 
 const pr = (p) => ({
   key: `${p.repository.nameWithOwner}#${p.number}`,
   repo: p.repository.nameWithOwner, number: p.number, title: p.title, url: p.url,
-  author: p.author?.login ?? "", draft: p.isDraft,
+  author: p.author?.login ?? "", draft: p.isDraft, updated: p.updatedAt,
+  mergeable: p.mergeable, mergeState: p.mergeStateStatus, base: p.baseRefName,
   oid: p.commits.nodes[0]?.commit?.oid ?? null,
   ci: CI[p.commits.nodes[0]?.commit?.statusCheckRollup?.state] ?? null,
 });
@@ -136,4 +138,28 @@ export async function discussions(cfg) {
         url: m ? `https://${cfg.host}/${m[1]}/pull/${m[2]}` : n.repository.html_url,
       };
     });
+}
+
+// What a recap needs beyond P (recap.js): who's still asked, the latest reviews and the teams they
+// count for, and the review threads with who started them and who spoke last.
+const DETAIL_FIELDS = `
+  reviewRequests(first: 20) { nodes { requestedReviewer { __typename ... on User { login } ... on Team { slug } } } }
+  latestOpinionatedReviews(first: 20) { nodes { state author { login __typename } commit { oid } onBehalfOf(first: 5) { nodes { slug } } } }
+  latestReviews(first: 20) { nodes { state author { login __typename } commit { oid } } }
+  reviewThreads(first: 50) { totalCount nodes { isResolved
+    first: comments(first: 1) { nodes { author { login __typename } } }
+    last: comments(last: 1) { nodes { author { login __typename } } } } }`;
+
+// keys ("owner/name#123") -> { [key]: details | null }: one alias per pull request. null when it
+// couldn't be read this time (gone, or no answer): the caller keeps what it had.
+export async function details(cfg, keys) {
+  if (!keys.length) return {};
+  const fields = keys.map((k, i) => {
+    const p = parsePin(k);
+    return p ? `d${i}: repository(owner: ${JSON.stringify(p.owner)}, name: ${JSON.stringify(p.name)}) {
+      pullRequest(number: ${p.number}) { ${DETAIL_FIELDS} } }` : "";
+  }).join("\n");
+  const res = JSON.parse(await gh(["api", "graphql", ...host(cfg), "-f", `query=query { ${fields} }`], { partial: true }));
+  if (!res.data) throw new Error(res.errors?.[0]?.message ?? "GitHub returned no data");
+  return Object.fromEntries(keys.map((k, i) => [k, res.data[`d${i}`]?.pullRequest ?? null]));
 }

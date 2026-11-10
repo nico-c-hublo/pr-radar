@@ -11,6 +11,8 @@
 //       "sound": "needs-you",                    // "needs-you" (review asked, CI red) | "always" | "never"
 //       "teamReviews": false,                    // also announce reviews asked of your teams
 //       "greenCi": true,                         // announce a pull request's CI turning green
+//       "recaps": "off",                         // "plain": a line under each pull request saying
+//                                                //   where it stands (recap.js) | "off"
 //       "lang": "en",                            // "en" | "fr"
 //       "demo": false                            // made-up data, no network (for screenshots)
 //   } }
@@ -37,6 +39,7 @@ export function readConfig(props) {
     sound: ["needs-you", "always", "never"].includes(p.sound) ? p.sound : "needs-you",
     teamReviews: p.teamReviews === true,
     greenCi: p.greenCi !== false,
+    recaps: p.recaps === "plain" ? "plain" : "off",
     lang: p.lang === "fr" ? "fr" : "en",
     demo: p.demo === true,
     problems: branches.some((b) => !b) ? ["branches: use \"owner/name@branch\""] : [],

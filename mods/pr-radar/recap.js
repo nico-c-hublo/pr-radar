@@ -1,0 +1,99 @@
+// A pull request's recap: one sentence saying where it stands, from the viewer's point of view.
+// Pure (no Herdr), so it's tested with fixtures. Two steps:
+//   story(pr, me)          what GitHub's answer says, worked out: the facts a sentence is made of;
+//   plainRecap(story, s)   the sentence, from fixed templates (i18n.js `recap`), most pressing first.
+// `pr` is a pull request as github.js returns it (author, draft, ci, oid, mergeable, mergeState,
+// base) with its details merged in (reviewRequests, latestOpinionatedReviews, latestReviews,
+// reviewThreads: GraphQL's own shape).
+
+const nodes = (c) => (Array.isArray(c?.nodes) ? c.nodes.filter(Boolean) : []);
+const isBot = (a) => !a || a.__typename === "Bot" || /\[bot\]$/.test(a.login ?? "");
+
+// mergeable + mergeStateStatus -> what the recap can say about merging; null: GitHub is still
+// computing it (it does so lazily after a push), or nothing to say.
+function merge(pr) {
+  if (pr.mergeable === "CONFLICTING" || pr.mergeState === "DIRTY") return "conflicts";
+  switch (pr.mergeState) {
+    case "BEHIND": return "behind";
+    case "BLOCKED": return "blocked";
+    case "UNSTABLE": return "unstable";
+    case "CLEAN": case "HAS_HOOKS": return pr.draft ? null : "ready";
+    default: return null; // UNKNOWN, DRAFT, missing
+  }
+}
+
+export function story(pr, me) {
+  const who = (login) => (login === me ? "you" : login);
+  const author = pr.author ?? "";
+  const role = author === me ? "author" : "reviewer";
+
+  const opinions = nodes(pr.latestOpinionatedReviews).filter((r) => !isBot(r.author));
+  const approvals = opinions.filter((r) => r.state === "APPROVED")
+    .map((r) => ({ by: who(r.author.login), teams: nodes(r.onBehalfOf).map((t) => t.slug) }));
+  const changesRequested = opinions.filter((r) => r.state === "CHANGES_REQUESTED").map((r) => ({ by: who(r.author.login) }));
+
+  const requested = nodes(pr.reviewRequests).map((r) => r.requestedReviewer).filter(Boolean);
+  const waitingOn = {
+    users: requested.filter((r) => r.login && r.__typename !== "Bot" && r.login !== me).map((r) => r.login),
+    teams: requested.filter((r) => r.__typename === "Team").map((r) => r.slug),
+  };
+
+  // The viewer's last review of any kind: what "since your review" is measured from.
+  const mine = nodes(pr.latestReviews).find((r) => r.author?.login === me);
+  const pushedSinceMyReview = mine ? Boolean(pr.oid && mine.commit?.oid && mine.commit.oid !== pr.oid) : null;
+
+  // Unresolved threads, by who started them and who spoke last (bots don't count as speaking).
+  const open = nodes(pr.reviewThreads).filter((t) => !t.isResolved).map((t) => ({
+    starter: nodes(t.first)[0]?.author, last: nodes(t.last)[0]?.author,
+  }));
+  const spoke = (a) => a && !isBot(a);
+  const threads = {
+    open: open.length,
+    // On your pull request: someone else spoke last.
+    waitingOnMe: role === "author" ? open.filter((t) => spoke(t.last) && t.last.login !== me).length : 0,
+    // On someone else's: threads you started where the author spoke last.
+    answered: role === "reviewer" ? open.filter((t) => t.starter?.login === me && t.last?.login === author).length : 0,
+    capped: (pr.reviewThreads?.totalCount ?? 0) > nodes(pr.reviewThreads).length,
+  };
+
+  return {
+    role, author: who(author), draft: Boolean(pr.draft), ci: pr.ci ?? null, merge: merge(pr), base: pr.base ?? "",
+    approvals, changesRequested, waitingOn, threads, pushedSinceMyReview,
+    detailed: Boolean(pr.reviewRequests || pr.latestOpinionatedReviews || pr.latestReviews || pr.reviewThreads),
+  };
+}
+
+const MAX_CLAUSES = 3;
+
+// The story as one sentence: what asks something of you, then what blocks the merge, then progress.
+// Lowercase, like the panel's other notes: a sentence often starts with a login, which keeps its case.
+export function plainRecap(st, s) {
+  const r = s.recap;
+  if (!st.detailed) return null; // no details fetched yet: say nothing rather than half
+  const n = (count) => (st.threads.capped && count === st.threads.open ? `${count}+` : count);
+  const clauses = [];
+  if (st.threads.waitingOnMe) clauses.push(r.waitingOnMe(n(st.threads.waitingOnMe)));
+  if (st.merge === "conflicts") clauses.push(r.conflicts(st.base));
+  if (st.threads.answered) clauses.push(r.answered(st.author, n(st.threads.answered)));
+  if (st.pushedSinceMyReview) clauses.push(r.pushed);
+  if (st.changesRequested.length) clauses.push(r.changesRequested(st.changesRequested.map((c) => c.by)));
+  if (st.ci === "failed") clauses.push(r.ciRed);
+  if (st.merge === "behind") clauses.push(r.behind(st.base));
+  const blocking = clauses.length;
+  if (!blocking && st.merge === "ready") return r.ready;
+  const { users, teams } = st.waitingOn;
+  if (users.length || teams.length) clauses.push(r.waitingOn(teams, users));
+  if (st.approvals.length) clauses.push(r.approved(st.approvals));
+  if (st.role === "reviewer" && st.pushedSinceMyReview === false && !st.threads.answered) clauses.push(r.nothingNew);
+  if (!clauses.length && st.merge === "unstable") clauses.push(r.unstable);
+  if (!clauses.length && !st.approvals.length && !st.changesRequested.length) clauses.push(r.noReviewers);
+  return clauses.slice(0, MAX_CLAUSES).join(" · ");
+}
+
+// A stable fingerprint of what the sentence is made of: a change means the recap may read differently.
+export function digest(st) {
+  const text = JSON.stringify(st);
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}

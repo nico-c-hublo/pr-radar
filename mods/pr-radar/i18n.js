@@ -1,5 +1,15 @@
 // Every string PR Radar shows, in English and French. `ref` is "owner/name#123".
 
+// "a", "a and b", "a, b and c", "a, b, c and 2 more". In a recap the viewer is "you" (recap.js);
+// French says "toi".
+const LIST_MAX = 3;
+const list = (xs, and, more = (n) => `${n} more`) => {
+  const shown = xs.length > LIST_MAX ? [...xs.slice(0, LIST_MAX), more(xs.length - LIST_MAX)] : xs;
+  return shown.length < 2 ? shown.join("") : `${shown.slice(0, -1).join(", ")} ${and} ${shown[shown.length - 1]}`;
+};
+const autres = (n) => `${n} autre${n === 1 ? "" : "s"}`;
+const toi = (who) => (who === "you" ? "toi" : who);
+
 const en = {
   reviewRequested: (ref) => `Review requested: ${ref}`,
   teamReviewRequested: (ref) => `Review requested of your team: ${ref}`,
@@ -31,6 +41,23 @@ const en = {
   team: "team", draft: "draft", review: "review",
   decision: { approved: "approved", changes: "changes requested" },
   units: ["min", "h", "d"],
+  recap: {
+    waitingOnMe: (n) => `${n} thread${n === 1 ? "" : "s"} wait${n === 1 ? "s" : ""} on you`,
+    conflicts: (base) => `conflicts with ${base}`,
+    answered: (author, n) => `${author} answered your ${n === 1 ? "thread" : `${n} threads`}`,
+    pushed: "pushed since your review",
+    changesRequested: (by) => `changes requested by ${list(by, "and")}`,
+    ciRed: "CI red",
+    behind: (base) => `behind ${base}`,
+    ready: "ready to merge",
+    waitingOn: (teams, users) => `waiting on ${list([...teams.map((t) => `team ${t}`), ...users], "and")}`,
+    approved: (a) => (a.length === 1
+      ? `${a[0].by} approved${a[0].teams.length ? ` for team ${list(a[0].teams, "and")}` : ""}`
+      : `approved by ${list(a.map((x) => (x.teams.length ? `${x.by} (${x.teams.join(", ")})` : x.by)), "and")}`),
+    nothingNew: "nothing new since your review",
+    unstable: "mergeable · some optional checks fail",
+    noReviewers: "no reviewers yet",
+  },
 };
 
 const fr = {
@@ -64,6 +91,23 @@ const fr = {
   team: "équipe", draft: "draft", review: "review",
   decision: { approved: "approuvée", changes: "changements demandés" },
   units: ["min", "h", "j"],
+  recap: {
+    waitingOnMe: (n) => `${n} fil${n === 1 ? "" : "s"} attend${n === 1 ? "" : "ent"} ta réponse`,
+    conflicts: (base) => `conflits avec ${base}`,
+    answered: (author, n) => `${author === "you" ? "tu as" : `${author} a`} répondu à ${n === 1 ? "ton fil" : `tes ${n} fils`}`,
+    pushed: "nouveaux commits depuis ta review",
+    changesRequested: (by) => `changements demandés par ${list(by.map(toi), "et", autres)}`,
+    ciRed: "CI rouge",
+    behind: (base) => `en retard sur ${base}`,
+    ready: "prête à merger",
+    waitingOn: (teams, users) => `en attente de ${list([...teams.map((t) => `l'équipe ${t}`), ...users], "et", autres)}`,
+    approved: (a) => (a.length === 1
+      ? `${a[0].by === "you" ? "tu as approuvé" : `${a[0].by} a approuvé`}${a[0].teams.length ? ` pour l'équipe ${list(a[0].teams, "et", autres)}` : ""}`
+      : `approuvée par ${list(a.map((x) => (x.teams.length ? `${toi(x.by)} (${x.teams.join(", ")})` : toi(x.by))), "et", autres)}`),
+    nothingNew: "rien de nouveau depuis ta review",
+    unstable: "mergeable · des checks optionnels échouent",
+    noReviewers: "pas encore de reviewers",
+  },
 };
 
 export const strings = (lang) => (lang === "fr" ? fr : en);

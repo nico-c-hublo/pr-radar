@@ -29,6 +29,10 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   reason and how long ago as the note), Reviews requested of my teams (`○` in `dim`). A draft pull
   request's row, in any section, has a `draft` tag before its title (10 px, `dim`, a 1 px `border`
   outline, 4 px corners) and its title in `muted` instead of `foreground`.
+- **Recaps** (`recaps: "plain"`): a pull request row with a recap is 44 px high instead of 30, and
+  the recap is a second line under the title (and its `draft` tag), 11 px in `dim`, cut off with
+  an ellipsis, its full text in a tooltip. Lowercase, clauses joined by ` · `, three at most:
+  `2 threads wait on you · conflicts with main · changes requested by maya`.
 - **Pins**: each pull request row ends with a 20 px slot for a `📌` (12 px). Unpinned, it shows only
   while the row is hovered, at 35% opacity and full when the pin itself is hovered; pinned, it's
   always there at full opacity (60% on hover). A click pins or unpins without opening the row. Pinned pull requests leave their sections for a
@@ -62,6 +66,17 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
   - a watched branch whose settled state (success or failed) flips; a run in progress changes
     nothing; broken has a sound;
   - an unread participating notification on a pull request that's new or updated since last seen.
+- Recaps, when on: after each check, the badge copy picks at most 30 pull requests (pinned, mine,
+  reviews asked of me, of my teams), fetches the details of those whose `updatedAt` moved or whose
+  details are over 15 minutes old (15 per check at most; the rest wait), and rebuilds every recap
+  from its details and this check's answer (CI and mergeability are always fresh). In order, what
+  asks something of you, then what blocks the merge, then progress: threads waiting on you
+  (your pull request, someone else spoke last), conflicts with the base branch, the author
+  answered threads you started, pushed since your last review, changes requested, CI red, behind
+  the base branch, the people and teams still asked (not you), approvals with the teams they
+  counted for, nothing new since your review. `ready to merge` alone when GitHub says `CLEAN` and
+  nothing above applies. Mergeability `UNKNOWN` (computed lazily after a push) says nothing. Lists
+  stop at three names and "2 more". Bots are left out; you are "you".
 - A pinned pull request is loud: every announcement about it has the needs-you sound, and also
   its team review requests, its green CI (whatever `greenCi`), its CI when it isn't yours, its
   review decision turning approved or changes requested, new commits when it isn't yours, the last
@@ -86,7 +101,7 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     kind: "dialog" })` and only reads. It also handles the `refresh`, `panel`, `test` and `open-<slot>`
     commands from `nextCommand()`.
   - `config.js`: reads the props (orgs, repos, branches, host, interval, sound, teamReviews, greenCi,
-    lang, demo) into a config with defaults; its scope id keys the shared state.
+    recaps, lang, demo) into a config with defaults; its scope id keys the shared state.
   - `github.js`: `gh api graphql`, one query with three `search(type: ISSUE)` (scope `is:pr is:open
     archived:false` plus `org:` / `repo:` qualifiers: `author:@me`, `user-review-requested:@me`,
     `review-requested:@me`; the difference between the last two is your teams), each pull request's
@@ -95,12 +110,20 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
     `state`, `reviewDecision` and the last `ISSUE_COMMENT` / `PULL_REQUEST_REVIEW` timeline item).
     `gh api graphql` exits 1 when part of the query fails (a pin or branch that's gone): the answer
     still counts when it has `data`, and a `NOT_FOUND` on a pin's alias unpins it. `gh api notifications?participating=true`, keeping pull requests in
-    scope, without the `review_requested` and `ci_activity` reasons.
+    scope, without the `review_requested` and `ci_activity` reasons. The fragment also has
+    `updatedAt mergeable mergeStateStatus baseRefName`. `details()`: one `repository { pullRequest }`
+    alias per pull request with `reviewRequests`, `latestOpinionatedReviews` (with `onBehalfOf`
+    teams), `latestReviews` (your last review's commit) and `reviewThreads(first: 50)` (resolved,
+    first and last comment's author).
+  - `recap.js`: pure, no Herdr. `story(pr, me)` works out the facts, `plainRecap(story, strings)`
+    writes the sentence from i18n's `recap` templates, `digest(story)` fingerprints it. Tested with
+    `npm test` (`node --test`, fixtures in `test/`). Kept in shared `pr-radar.recaps:<scope>`
+    (`{ updated, at, details, digest, plain }` per pull request), pruned to the listed ones.
   - `icon.svg`: the icon, drawn with `image("mods/pr-radar/icon.svg")` (full color, from Herdr's
     config folder) as the badge's first child and before the panel's title.
   - `icon-error.svg`, `icon-warning.svg`, `icon-success.svg`, `icon-info.svg`: the toasts' icons,
     picked by the toast's level.
-  - `i18n.js`: English and French strings. `demo.js`: made-up data for `demo: true`, starting with `acme/web#418` pinned (changes requested).
+  - `i18n.js`: English and French strings. `demo.js`: made-up data for `demo: true`, starting with `acme/web#418` pinned (changes requested), and the details its recaps are built from.
 - Herdr: `exec` (gh, open), `notify` with `action: { name: "pr-radar.open-<slot>" }`, `playSound`,
   `openOverlay` / `closeOverlay`, `shared` / `setShared`, `nextCommand`, `run("pr-radar.refresh")`,
   `theme`, `props`, `cx.timer.every`; gpui-kit's `image`.
@@ -151,6 +174,9 @@ you), and a click on the badge opens a panel listing it all, each row a link to 
 - With `"demo": true` and no pins yet, the badge reads `📌 1  ◉ 1 review (+2)  ✗ 1 CI  ✎ 2  main ✓`
   (`📌 1` in `blocked`), right after the radar icon, and the panel shows six sections with the made-up rows, starting with
   Pinned (`acme/web#418`, `changes requested`).
+- With `"demo": true, "recaps": "plain"`, the panel's rows read `2 threads wait on you · changes
+  requested by maya · CI red` (web#418), `maya answered your 2 threads · pushed since your review`
+  (web#412), `ready to merge` (infra#88), and `npm test` passes.
 - `herdr-app do pr-radar.test` shows exactly one toast, and clicking it opens GitHub's notifications.
 - `herdr-app do pr-radar.panel` opens the panel, the icon before its title; clicking a row opens
   that pull request. (`herdr-app shot` saves the window's last frame to look at both; take it twice,

@@ -48,6 +48,23 @@ is `"never"`):
 A pin works on any pull request, even one that's in none of your lists. Pins are kept per
 configuration, across restarts. Click its 📌 again to unpin.
 
+## Recaps
+
+With `"recaps": "plain"`, each pull request in the panel gets a second line under its title saying
+where it stands, from your point of view, most pressing first:
+
+- `2 threads wait on you`: unresolved threads on your pull request where someone else spoke last;
+- `conflicts with main` / `behind main`;
+- `ana answered your 2 threads` / `pushed since your review` / `nothing new since your review`;
+- `changes requested by maya`, `CI red`;
+- `waiting on team beta and leo`, `bill approved for team alpha` (the team a review counted for,
+  through code owners);
+- `ready to merge` when GitHub says nothing blocks it.
+
+At most three of these, joined by `·`. Hover a cut-off recap to read all of it. Pinned pull
+requests, yours and the reviews asked of you and your teams get one (30 at most). Recaps are built
+from GitHub's answer alone: nothing is sent anywhere else.
+
 ## Requirements
 
 - Herdr (the desktop app).
@@ -93,6 +110,7 @@ PR Radar watches every repository you're involved in.
 | `sound` | `"needs-you"` | `"needs-you"` (review requested, red CI, broken branch), `"always"` or `"never"` |
 | `teamReviews` | `false` | Also announce reviews requested of your teams |
 | `greenCi` | `true` | Announce your pull request's checks passing |
+| `recaps` | `"off"` | `"plain"`: a line under each pull request saying where it stands (see Recaps) |
 | `lang` | `"en"` | `"en"` or `"fr"` |
 | `demo` | `false` | Made-up data and no network, for screenshots |
 
@@ -117,7 +135,9 @@ Run them with `herdr-app do <command>`.
 PR Radar runs `gh` on your machine, with your GitHub login:
 - one GraphQL query per check, for your pull requests, review requests, watched branches and pinned
   pull requests;
-- one call to the notifications API, for discussions.
+- one call to the notifications API, for discussions;
+- with recaps on, one more GraphQL query for the review requests, reviews and review threads of
+  the pull requests updated since the last one (15 at most per check; each again every 15 minutes).
 
 It also runs `open` (macOS) or `xdg-open` (Linux) to open links. It keeps a small state in Herdr's
 shared state, and sends nothing anywhere else.

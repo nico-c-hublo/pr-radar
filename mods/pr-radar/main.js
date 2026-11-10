@@ -1,10 +1,11 @@
 import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { exec, run, theme, props, shared, setShared, notify, playSound, openOverlay, closeOverlay, nextCommand } from "herdr";
-import { overview, discussions } from "./github.js";
+import { overview, discussions, details } from "./github.js";
+import { story, plainRecap, digest } from "./recap.js";
 import { readConfig } from "./config.js";
 import { strings } from "./i18n.js";
-import { demoOverview, demoDiscussions, DEMO_PINS } from "./demo.js";
+import { demoOverview, demoDiscussions, demoDetails, DEMO_PINS } from "./demo.js";
 
 // The mod's icon, from Herdr's config folder (where the install puts this one).
 const ICON = "mods/pr-radar/icon.svg";
@@ -25,6 +26,8 @@ const TOAST_ICON = Object.fromEntries(["error", "warning", "success", "info"]
 // panel show; "pr-radar.seen:<scope>" is what was announced, so a restart doesn't repeat it.
 // "pr-radar.pins:<scope>" lists the pinned pull requests: the panel's 📌 toggles them, they're
 // shown first and announced loudly, and unpinned once merged or closed.
+// With recaps: "plain", "pr-radar.recaps:<scope>" holds each listed pull request's details and the
+// one-line recap built from them (recap.js), drawn under its title in the panel.
 // The first check only records. props.panel: the panel copy (it reads the badge's props.cfg).
 // Commands: pr-radar.refresh, pr-radar.panel, pr-radar.test (a sample toast).
 
@@ -33,6 +36,10 @@ const short = (repo) => repo.split("/").pop();
 const ref = (x) => `${short(x.repo)}#${x.number ?? ""}`;
 // A pull request's key, "owner/name#123", as pins store it (null for a thread without a number).
 const prKey = (x) => (x.number ? `${x.repo}#${x.number}` : null);
+// Recaps: for at most RECAP_MAX pull requests (pinned, then mine, then reviews asked of me, then of my
+// teams), details fetched again when the pull request was updated, or at least every RECAP_STALE,
+// RECAP_FETCH at most per check (the rest wait for the next one).
+const RECAP_MAX = 30, RECAP_FETCH = 15, RECAP_STALE = 15 * 60000;
 const openUrl = (url) => { if (url) exec("open", [url]).catch(() => exec("xdg-open", [url]).catch(() => {})); };
 
 function ago(s, iso) {
@@ -50,6 +57,7 @@ export default class PrRadar extends View {
     this.stateKey = `pr-radar.state:${this.cfg.id}`;
     this.seenKey = `pr-radar.seen:${this.cfg.id}`;
     this.pinsKey = `pr-radar.pins:${this.cfg.id}`;
+    this.recapsKey = `pr-radar.recaps:${this.cfg.id}`;
     if (this.panel) return;
     this.links = new Map(); this.slot = 0; this.busy = false;
     cx.spawn(async (cx) => {
@@ -104,6 +112,7 @@ export default class PrRadar extends View {
           : await Promise.all([overview(this.cfg, this.pins()), discussions(this.cfg)]);
         if (!this.cfg.demo) this.announce(o, threads);
         setShared(this.stateKey, { ...o, threads, at: Date.now(), error: this.cfg.problems[0] ?? null });
+        if (this.cfg.recaps !== "off") await this.updateRecaps(o);
       } catch (e) {
         console.log(`pr-radar: ${e?.message ?? e}`);
         setShared(this.stateKey, { ...prev, error: String(e?.message ?? e), at: Date.now() });
@@ -112,6 +121,32 @@ export default class PrRadar extends View {
         cx.notify();
       }
     });
+  }
+
+  // Fetches the details recaps need (see RECAP_*) and rebuilds every recap from them and from this
+  // check's answer, which has the fresh CI and mergeability. A failed fetch keeps what was known.
+  async updateRecaps(o) {
+    const byKey = new Map();
+    const add = (p) => { if (p?.key && p.title && !byKey.has(p.key)) byKey.set(p.key, p); };
+    (o.pinned ?? []).forEach(add);
+    o.prs.forEach(add);
+    o.reviews.filter((r) => !r.team).forEach(add);
+    o.reviews.filter((r) => r.team).forEach(add);
+    const keys = [...byKey.keys()].slice(0, RECAP_MAX);
+    const prev = shared(this.recapsKey) ?? {}, now = Date.now();
+    const due = keys.filter((k) => !prev[k] || prev[k].updated !== byKey.get(k).updated || now - prev[k].at > RECAP_STALE)
+      .slice(0, RECAP_FETCH);
+    let got = {};
+    try { got = this.cfg.demo ? demoDetails(due) : await details(this.cfg, due); }
+    catch (e) { console.log(`pr-radar: recaps: ${e?.message ?? e}`); }
+    const next = {};
+    for (const k of keys) {
+      const c = got[k] ? { updated: byKey.get(k).updated, at: now, details: got[k] } : prev[k];
+      if (!c) continue;
+      const st = story({ ...byKey.get(k), ...c.details }, o.me);
+      next[k] = { ...c, digest: digest(st), plain: plainRecap(st, this.s) };
+    }
+    setShared(this.recapsKey, next);
   }
 
   announce(o, threads) {
@@ -240,6 +275,8 @@ export default class PrRadar extends View {
     const st = shared(this.stateKey) ?? {};
     const close = () => closeOverlay(props().overlay);
     const pins = this.pins(), pinned = new Set(pins);
+    const recaps = this.cfg.recaps !== "off" ? shared(this.recapsKey) ?? {} : {};
+    const recapOf = (key) => (key && recaps[key]?.plain) || null;
     let n = 0;
     // The 📌 at the end of a pull request's row pins or unpins it; the rest of the row opens it.
     // A pinned row always shows it; an unpinned one only while hovered, faint until the pin itself is.
@@ -254,9 +291,10 @@ export default class PrRadar extends View {
     // A draft pull request's row: a `draft` tag before its title, and the title faded.
     const draftTag = () => div().flex_none().px(5).rounded(4).border_1().border_color(t.border)
       .text_size(10).text_color(t.dim).child(s.draft);
+    // A pull request with a recap gets it on a second line, under its title.
     const row = (icon, color, where, title, extra, url, key = null, draft = false) => {
-      const id = `prr-row-${n++}`;
-      return h_flex().id(id).h(30).flex_none().px(10).gap(10).items_center()
+      const id = `prr-row-${n++}`, recap = recapOf(key);
+      return h_flex().id(id).h(recap ? 44 : 30).flex_none().px(10).gap(10).items_center()
       .rounded(5).cursor_pointer().hover((h) => h.bg(t.hover)).on_click(() => { openUrl(url); close(); })
       .when(Boolean(key), (e) => e.on_hover((hovered, cx) => {
         if (hovered) this.hoverRow = id; else if (this.hoverRow === id) this.hoverRow = null;
@@ -264,8 +302,12 @@ export default class PrRadar extends View {
       }))
       .child(div().w(14).flex_none().text_color(color).child(icon))
       .child(div().w(150).flex_none().truncate().text_size(11.5).text_color(t.dim).child(where))
-      .when(draft, (e) => e.child(draftTag()))
-      .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(draft ? t.muted : t.foreground).child(title))
+      .child(v_flex().flex_1().min_w(0).gap(2)
+        .child(h_flex().gap(10).items_center().min_w(0)
+          .when(draft, (e) => e.child(draftTag()))
+          .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(draft ? t.muted : t.foreground).child(title)))
+        .when(Boolean(recap), (e) => e.child(div().id(`${id}-recap`).truncate().text_size(11).text_color(t.dim)
+          .tooltip(recap).child(recap))))
       .child(div().flex_none().text_size(11).text_color(t.dim).child(extra ?? ""))
       .child(pin(key, id));
     };

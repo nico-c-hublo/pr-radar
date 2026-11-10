@@ -3,7 +3,8 @@
 const ago = (min) => new Date(Date.now() - min * 60000).toISOString();
 const p = (repo, number, title, author, ci, extra = {}) => ({
   key: `${repo}#${number}`, repo, number, title, author, ci, draft: false, oid: `demo${number}`,
-  url: `https://github.com/${repo}/pull/${number}`, ...extra,
+  url: `https://github.com/${repo}/pull/${number}`, updated: "2026-01-01T00:00:00Z",
+  mergeable: "MERGEABLE", mergeState: "BLOCKED", base: "main", ...extra,
 });
 
 // What demo mode starts with pinned, and what the query would say of the pinned ones.
@@ -24,8 +25,8 @@ const demoLists = () => ({
   me: "you",
   reviews: [
     p("acme/web", 412, "Checkout: keep the cart when the session expires", "maya", "success", { team: false }),
-    p("acme/api", 1290, "Rate-limit the export endpoint", "leo", "pending", { team: true }),
-    p("acme/infra", 88, "Move staging to the new cluster", "sam", "success", { team: true }),
+    p("acme/api", 1290, "Rate-limit the export endpoint", "leo", "pending", { team: true, mergeState: "BEHIND" }),
+    p("acme/infra", 88, "Move staging to the new cluster", "sam", "success", { team: true, mergeState: "CLEAN" }),
   ],
   prs: [
     p("acme/web", 418, "Search: debounce the suggestions", "you", "failed"),
@@ -39,3 +40,23 @@ export const demoDiscussions = () => [
   { id: "d1", reason: "comment", repo: "acme/web", number: 418, title: "Search: debounce the suggestions", updated: ago(4), url: "https://github.com/acme/web/pull/418" },
   { id: "d2", reason: "mention", repo: "acme/api", number: 1287, title: "Paginate the audit log", updated: ago(52), url: "https://github.com/acme/api/pull/1287" },
 ];
+
+// What a recap is made of, for the demo rows (the shape github.js `details` gives).
+const user = (login) => ({ login, __typename: "User" });
+const team = (slug) => ({ __typename: "Team", slug });
+const review = (login, state, oid, teams = []) => ({ state, author: user(login), commit: { oid }, onBehalfOf: { nodes: teams.map((slug) => ({ slug })) } });
+const thread = (starter, last) => ({ isResolved: false, first: { nodes: [{ author: user(starter) }] }, last: { nodes: [{ author: user(last) }] } });
+const detail = ({ asked = [], opinions = [], latest = opinions, threads = [] }) => ({
+  reviewRequests: { nodes: asked.map((requestedReviewer) => ({ requestedReviewer })) },
+  latestOpinionatedReviews: { nodes: opinions }, latestReviews: { nodes: latest },
+  reviewThreads: { totalCount: threads.length, nodes: threads },
+});
+const DEMO_DETAILS = {
+  "acme/web#418": detail({ opinions: [review("maya", "CHANGES_REQUESTED", "demo418")], threads: [thread("maya", "maya"), thread("maya", "maya")] }),
+  "acme/api#1301": detail({ asked: [team("backend")], opinions: [review("leo", "APPROVED", "demo1301", ["platform"])] }),
+  "acme/web#405": detail({}),
+  "acme/web#412": detail({ latest: [review("you", "COMMENTED", "old412")], threads: [thread("you", "maya"), thread("you", "maya")] }),
+  "acme/api#1290": detail({ opinions: [review("sam", "APPROVED", "demo1290", ["api"])] }),
+  "acme/infra#88": detail({ opinions: [review("leo", "APPROVED", "demo88", ["infra"])] }),
+};
+export const demoDetails = (keys) => Object.fromEntries(keys.map((k) => [k, DEMO_DETAILS[k] ?? null]));
