@@ -66,6 +66,11 @@ test("readConfig: myPrs is \"scope\" unless \"everywhere\", and it's part of the
   assert.notEqual(readConfig({ orgs: ["acme"] }).id, readConfig({ orgs: ["acme"], myPrs: "everywhere" }).id);
 });
 
+test("readConfig: with the default myPrs, the state's id is the one from before the prop", () => {
+  const props = { orgs: ["acme"], repos: ["someone/tool"], branches: ["acme/web@main"] };
+  assert.equal(readConfig(props).id, JSON.stringify(["github.com", ["acme"], ["someone/tool"], ["acme/web@main"], false]));
+});
+
 test("overview: your pull requests are searched in the scope by default", async () => {
   herdr.answer({ stdout: JSON.stringify(empty) });
   await overview(readConfig({ orgs: ["acme"] }));
