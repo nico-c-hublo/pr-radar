@@ -47,7 +47,10 @@ export function readConfig(props) {
     demo: p.demo === true,
     problems: branches.some((b) => !b) ? ["branches: use \"owner/name@branch\""] : [],
   };
-  // State is kept per scope, so two copies watching different things don't mix.
-  cfg.id = JSON.stringify([cfg.host, cfg.orgs, cfg.repos, cfg.myPrs, cfg.branches.map((b) => `${b.repo}@${b.branch}`), cfg.demo]);
+  // State is kept per scope, so two copies watching different things don't mix. myPrs only joins
+  // the id when it's "everywhere": with the default, the id (and so the state saved under it,
+  // pins and seen marks included) stays what it was before the prop existed.
+  cfg.id = JSON.stringify([cfg.host, cfg.orgs, cfg.repos, ...(cfg.myPrs === "everywhere" ? [cfg.myPrs] : []),
+    cfg.branches.map((b) => `${b.repo}@${b.branch}`), cfg.demo]);
   return cfg;
 }
