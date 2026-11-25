@@ -115,6 +115,7 @@ PR Radar watches every repository you're involved in.
 |---|---|---|
 | `orgs` | `[]` | Only pull requests in these orgs (or users) |
 | `repos` | `[]` | …and in these repositories (`"owner/name"`). With both empty: everywhere |
+| `myPrs` | `"scope"` | `"everywhere"`: your own pull requests in any repository, outside `orgs` and `repos` too (those you open from a fork included), with their discussions. Review requests stay in scope |
 | `branches` | `[]` | Branches whose checks to watch: `"owner/name@branch"` |
 | `host` | `"github.com"` | A GitHub Enterprise host, as `gh` knows it |
 | `interval` | `60` | Seconds between checks (30 at least) |
@@ -128,6 +129,7 @@ PR Radar watches every repository you're involved in.
 ```json
 "props": {
   "orgs": ["my-org"],
+  "myPrs": "everywhere",
   "branches": ["my-org/app@main", "my-org/api@main"],
   "sound": "needs-you"
 }

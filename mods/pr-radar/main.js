@@ -1,7 +1,7 @@
 import { View, div, image } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { exec, run, theme, props, shared, setShared, notify, playSound, openOverlay, closeOverlay, nextCommand } from "herdr";
-import { overview, discussions, details, myTeams } from "./github.js";
+import { overview, discussions, ownThreads, details, myTeams } from "./github.js";
 import { nextRecaps, nextTeams } from "./recap.js";
 import { readConfig } from "./config.js";
 import { strings } from "./i18n.js";
@@ -104,9 +104,10 @@ export default class PrRadar extends View {
       const prev = shared(this.stateKey) ?? {};
       try {
         if (this.cfg.demo && shared(this.pinsKey) == null) setShared(this.pinsKey, DEMO_PINS);
-        const [o, threads] = this.cfg.demo
+        const [o, all] = this.cfg.demo
           ? [demoOverview(this.pins()), demoDiscussions()]
           : await Promise.all([overview(this.cfg, this.pins()), discussions(this.cfg)]);
+        const threads = ownThreads(all, o.prs);
         if (!this.cfg.demo) this.announce(o, threads);
         setShared(this.stateKey, { ...o, threads, at: Date.now(), error: this.cfg.problems[0] ?? null });
         // Recaps are extra: whatever goes wrong there mustn't undo the check that just succeeded.
