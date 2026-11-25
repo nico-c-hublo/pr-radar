@@ -73,6 +73,9 @@ const PIN_FIELDS = `state reviewDecision
 // `gone`: GitHub says the pull request doesn't exist (any more); `unknown`: no answer this time.
 export async function overview(cfg, pins = []) {
   const q = `is:pr is:open archived:false ${scope(cfg)}`.trim();
+  // With myPrs "everywhere", your own pull requests are looked for in any repository: one opened
+  // from a fork lives in the upstream repository, where you're its author.
+  const mine = cfg.myPrs === "everywhere" ? "is:pr is:open archived:false" : q;
   const branchFields = cfg.branches.map((b, i) => {
     const [owner, name] = b.repo.split("/");
     return `b${i}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) {
@@ -93,7 +96,7 @@ query($mine: String!, $personal: String!, $asked: String!) {
   ${pinFields}
 }`;
   const out = await gh(["api", "graphql", ...host(cfg), "-f", `query=${query}`,
-    "-f", `mine=${q} author:@me`, "-f", `personal=${q} user-review-requested:@me`, "-f", `asked=${q} review-requested:@me`], { partial: true });
+    "-f", `mine=${mine} author:@me`, "-f", `personal=${q} user-review-requested:@me`, "-f", `asked=${q} review-requested:@me`], { partial: true });
   const res = JSON.parse(out);
   const d = res.data;
   if (!d) throw new Error(res.errors?.[0]?.message ?? "GitHub returned no data");
@@ -123,21 +126,36 @@ query($mine: String!, $personal: String!, $asked: String!) {
 }
 
 // Unread "participating" notifications on pull requests in scope. Review requests come from the
-// query above and CI from the checks, so those reasons are left out here.
+// query above and CI from the checks, so those reasons are left out here. With myPrs
+// "everywhere", the ones out of scope are kept too, marked `outside`: ownThreads() then keeps
+// those on your own pull requests (the notification alone can't tell whose it is).
 const SKIP = new Set(["review_requested", "ci_activity"]);
 
 export async function discussions(cfg) {
   const list = JSON.parse(await gh(["api", ...host(cfg), "notifications?participating=true&per_page=50"]));
+  const everywhere = cfg.myPrs === "everywhere";
   return list
-    .filter((n) => n.subject?.type === "PullRequest" && !SKIP.has(n.reason) && inScope(cfg, n.repository?.full_name ?? ""))
-    .map((n) => {
+    .filter((n) => n.subject?.type === "PullRequest" && !SKIP.has(n.reason))
+    .map((n) => ({ n, outside: !inScope(cfg, n.repository?.full_name ?? "") }))
+    .filter(({ outside }) => everywhere || !outside)
+    .map(({ n, outside }) => {
       const m = /\/repos\/([^/]+\/[^/]+)\/pulls\/(\d+)$/.exec(n.subject.url ?? "");
       return {
         id: n.id, reason: n.reason, title: n.subject.title, updated: n.updated_at,
         repo: n.repository.full_name, number: m ? Number(m[2]) : null,
         url: m ? `https://${cfg.host}/${m[1]}/pull/${m[2]}` : n.repository.html_url,
+        ...(outside ? { outside: true } : {}),
       };
     });
+}
+
+// The threads to show: those in scope, and those outside it on one of your pull requests (prs,
+// from overview), without the mark.
+export function ownThreads(threads, prs) {
+  const mine = new Set(prs.map((p) => p.key));
+  return threads
+    .filter((th) => !th.outside || (th.number && mine.has(`${th.repo}#${th.number}`)))
+    .map(({ outside, ...th }) => th);
 }
 
 // The viewer's teams, as "org/slug" (needs the token's read:org scope, which gh asks for).

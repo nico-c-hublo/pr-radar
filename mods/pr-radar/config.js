@@ -4,6 +4,8 @@
 //   { "mod": "pr-radar", "props": {
 //       "orgs": ["my-org"],                      // only pull requests in these orgs (or users)…
 //       "repos": ["someone/tool"],               // …and these repositories; both empty: everywhere
+//       "myPrs": "scope",                        // "everywhere": your own pull requests in any
+//                                                //   repository (forks' included), not just orgs/repos
 //       "branches": ["my-org/app@main"],         // branches whose CI to watch ("owner/name@branch"
 //                                                //   or { "repo": "owner/name", "branch": "main" })
 //       "host": "github.com",                    // a GitHub Enterprise host, as gh knows it
@@ -33,6 +35,7 @@ export function readConfig(props) {
   const cfg = {
     orgs: list(p.orgs).filter((o) => typeof o === "string"),
     repos: list(p.repos).filter((r) => typeof r === "string" && r.includes("/")),
+    myPrs: p.myPrs === "everywhere" ? "everywhere" : "scope",
     branches: branches.filter(Boolean),
     host: typeof p.host === "string" && p.host ? p.host : "github.com",
     interval: Math.max(30, Number(p.interval) || 60),
@@ -45,6 +48,6 @@ export function readConfig(props) {
     problems: branches.some((b) => !b) ? ["branches: use \"owner/name@branch\""] : [],
   };
   // State is kept per scope, so two copies watching different things don't mix.
-  cfg.id = JSON.stringify([cfg.host, cfg.orgs, cfg.repos, cfg.branches.map((b) => `${b.repo}@${b.branch}`), cfg.demo]);
+  cfg.id = JSON.stringify([cfg.host, cfg.orgs, cfg.repos, cfg.myPrs, cfg.branches.map((b) => `${b.repo}@${b.branch}`), cfg.demo]);
   return cfg;
 }
